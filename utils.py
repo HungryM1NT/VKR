@@ -102,3 +102,43 @@ def pcd_to_img_map(points_array, x_idx, y_idx, x_min_border, y_min_border, z_min
     img_map[:,:,2] = intensity_map
     
     return img_map
+
+def xywhr_to_xy4(x, y, w, h, yaw):
+    hw, hh = w / 2, h / 2
+    points = np.array([
+        [-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]
+    ])
+    
+    cos_a = np.cos(yaw)
+    sin_a = np.sin(yaw)
+    rot_matrix = np.array([
+        [cos_a, -sin_a],
+        [sin_a, cos_a]
+    ])
+    
+    rotated_points = np.dot(points, rot_matrix.T) + [x, y]
+    
+    # return rotated_points.flatten()
+    return rotated_points.flatten()
+
+
+def get_relative_cuboid_arr(cur_area_cuboid_arr, x_idx, y_idx, x_min_border, y_min_border):
+    x_min_area_border = x_min_border + x_idx * PCD_A_W
+    y_min_area_border = y_min_border + y_idx * PCD_A_H
+    
+    cur_area_cuboid_arr[:, 3] = (cur_area_cuboid_arr[:, 3] - x_min_area_border) / PCD_A_W
+    cur_area_cuboid_arr[:, 4] = (cur_area_cuboid_arr[:, 4] - y_min_area_border) / PCD_A_H
+    
+    cur_area_cuboid_arr[:, 6] = cur_area_cuboid_arr[:, 6] / PCD_A_W
+    cur_area_cuboid_arr[:, 7] = cur_area_cuboid_arr[:, 7] / PCD_A_H
+
+    return cur_area_cuboid_arr
+
+
+
+# x_c, y_c, width, height, angle_rad = 3.947, -6.01, 1.841, 5.174, -1.5421142437145487
+# x_c, y_c, width, height, angle_rad = 0.5, 0.5, 0.2, 0.1, 0.785  # 45 градусов
+# pts8 = xywhr_to_xy4(x_c, y_c, width, height, angle_rad)
+
+# # print("Формат для YOLO OBB (8 точек):")
+# print(pts8)

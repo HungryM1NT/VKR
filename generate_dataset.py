@@ -66,12 +66,12 @@ def get_bev_imgs_with_labels(cuboids_array, points_array):
             bevImage = img_map * 255
             images.append(bevImage)
             
-            labels_in_one_area = np.zeros((len(cur_area_cuboid_arr), 9))
-            for idx in range(len(cur_area_cuboid_arr)):
-                cuboid = cur_area_cuboid_arr[idx]
-                points = xywhr_to_xy4(cuboid[3], cuboid[4], cuboid[6], cuboid[7], cuboid[2])
-                labels_in_one_area
-                labels.append([cuboid[1]] + points)
+            # labels_in_one_area = np.zeros((len(cur_area_cuboid_arr), 9))
+            # for idx in range(len(cur_area_cuboid_arr)):
+            #     cuboid = cur_area_cuboid_arr[idx]
+            #     points = xywhr_to_xy4(cuboid[3], cuboid[4], cuboid[6], cuboid[7], cuboid[2])
+            #     labels_in_one_area
+            #     labels.append([cuboid[1]] + points)
     
     return images, labels
             

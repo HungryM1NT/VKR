@@ -103,23 +103,29 @@ def pcd_to_img_map(points_array, x_idx, y_idx, x_min_border, y_min_border, z_min
     
     return img_map
 
-def xywhr_to_xy4(x, y, w, h, yaw):
-    hw, hh = w / 2, h / 2
-    points = np.array([
-        [-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]
-    ])
+def xywhr_to_xy4(data):
+    x, y, w, h, yaw = data[:, 0], data[:, 1], data[:, 2], data[:, 3], data[:, 4]
+    
+    hw = w / 2
+    hh = h / 2
     
     cos_a = np.cos(yaw)
     sin_a = np.sin(yaw)
-    rot_matrix = np.array([
-        [cos_a, -sin_a],
-        [sin_a, cos_a]
-    ])
+
+    dx = np.array([-hw,  hw, hw, -hw]) # (4, N)
+    dy = np.array([-hh, -hh,  hh,  hh]) # (4, N)
     
-    rotated_points = np.dot(points, rot_matrix.T) + [x, y]
+    # x' = x + (dx * cos - dy * sin)
+    # y' = y + (dx * sin + dy * cos)
     
-    # return rotated_points.flatten()
-    return rotated_points.flatten()
+    x_pts = x[:, None] + (dx[None, :] * cos_a[:, None] - dy[None, :] * sin_a[:, None])
+    y_pts = y[:, None] + (dx[None, :] * sin_a[:, None] + dy[None, :] * cos_a[:, None])
+    
+    out = np.empty((data.shape[0], 8))
+    out[:, 0::2] = x_pts
+    out[:, 1::2] = y_pts
+    
+    return out
 
 
 def get_relative_cuboid_arr(cur_area_cuboid_arr, x_idx, y_idx, x_min_border, y_min_border):
@@ -136,9 +142,10 @@ def get_relative_cuboid_arr(cur_area_cuboid_arr, x_idx, y_idx, x_min_border, y_m
 
 
 
-# x_c, y_c, width, height, angle_rad = 3.947, -6.01, 1.841, 5.174, -1.5421142437145487
-# x_c, y_c, width, height, angle_rad = 0.5, 0.5, 0.2, 0.1, 0.785  # 45 градусов
-# pts8 = xywhr_to_xy4(x_c, y_c, width, height, angle_rad)
+bboxes = np.array([
+    [0.5, 0.5, 0.2, 0.1, 0.785], # 45 градусов
+    [0.2, 0.3, 0.4, 0.2, 1.57]   # ~90 градусов
+])
 
-# # print("Формат для YOLO OBB (8 точек):")
-# print(pts8)
+result = xywhr_to_xy4(bboxes)
+print(result)

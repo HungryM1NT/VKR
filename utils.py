@@ -25,7 +25,8 @@ def parse_configs(config):
 config = configparser.ConfigParser()
 config.read('settings.conf')
 CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
-    
+BEV_LABELS = ast.literal_eval(config['CONSTANTS']['BEV_LABELS'])
+
     
 # Распределение всех точек по необходимым зонам (row_num x col_num)
 def get_point_areas(points_array, row_num, col_num, x_min_border, y_min_border):
@@ -45,9 +46,10 @@ def get_cuboid_areas(cuboids_array, row_num, col_num, x_min_border, y_min_border
     cuboid_areas = [[[] for _ in range((col_num))] for _ in range(row_num)]
 
     for cuboid in cuboids_array:
-        x_idx = int((cuboid[3] - x_min_border) // PCD_A_W)
-        y_idx = int((cuboid[4] - y_min_border) // PCD_A_H)
+        x_idx = int((cuboid[2] - x_min_border) // PCD_A_W)
+        y_idx = int((cuboid[3] - y_min_border) // PCD_A_H)
         if x_idx >= 0 and y_idx >= 0 and x_idx < row_num and y_idx < col_num:
+            normalize_cuboid(cuboid, x_idx, y_idx, x_min_border, y_min_border)
             cuboid_areas[x_idx][y_idx].append(cuboid)
     
     return cuboid_areas
@@ -103,49 +105,77 @@ def pcd_to_img_map(points_array, x_idx, y_idx, x_min_border, y_min_border, z_min
     
     return img_map
 
-def xywhr_to_xy4(data):
-    x, y, w, h, yaw = data[:, 0], data[:, 1], data[:, 2], data[:, 3], data[:, 4]
-    
-    hw = w / 2
-    hh = h / 2
-    
-    cos_a = np.cos(yaw)
-    sin_a = np.sin(yaw)
+def xywhr_to_4xy(xywhr):
+    def rotate_x(a):
+        cos_a = np.cos(a)
+        sin_a = np.sin(a)
+        return lambda x, y: x * cos_a - y * sin_a
 
-    dx = np.array([-hw,  hw, hw, -hw]) # (4, N)
-    dy = np.array([-hh, -hh,  hh,  hh]) # (4, N)
-    
-    # x' = x + (dx * cos - dy * sin)
-    # y' = y + (dx * sin + dy * cos)
-    
-    x_pts = x[:, None] + (dx[None, :] * cos_a[:, None] - dy[None, :] * sin_a[:, None])
-    y_pts = y[:, None] + (dx[None, :] * sin_a[:, None] + dy[None, :] * cos_a[:, None])
-    
-    out = np.empty((data.shape[0], 8))
-    out[:, 0::2] = x_pts
-    out[:, 1::2] = y_pts
-    
-    return out
+    def rotate_y(a):
+        cos_a = np.cos(a)
+        sin_a = np.sin(a)
+        return lambda x, y: x * sin_a + y * cos_a
 
-
-def get_relative_cuboid_arr(cur_area_cuboid_arr, x_idx, y_idx, x_min_border, y_min_border):
-    x_min_area_border = x_min_border + x_idx * PCD_A_W
-    y_min_area_border = y_min_border + y_idx * PCD_A_H
+    start_x1 = - xywhr[:, 2] / 2
+    start_x2 = xywhr[:, 2] / 2
+    start_y1 = xywhr[:, 3] / 2
+    start_y2 = -xywhr[:, 3] / 2
     
-    cur_area_cuboid_arr[:, 3] = (cur_area_cuboid_arr[:, 3] - x_min_area_border) / PCD_A_W
-    cur_area_cuboid_arr[:, 4] = (cur_area_cuboid_arr[:, 4] - y_min_area_border) / PCD_A_H
+    # print(start_x1)
+    rotate_x_func = rotate_x(xywhr[:, 4])
+    rotate_y_func = rotate_y(xywhr[:, 4])
     
-    cur_area_cuboid_arr[:, 6] = cur_area_cuboid_arr[:, 6] / PCD_A_W
-    cur_area_cuboid_arr[:, 7] = cur_area_cuboid_arr[:, 7] / PCD_A_H
+    points_4xy = np.zeros((xywhr.shape[0], 8))
+    
+    points_4xy[:, 0] = np.round(rotate_x_func(start_x1, start_y1), 4) + xywhr[:, 0]
+    points_4xy[:, 2] = np.round(rotate_x_func(start_x2, start_y1), 4) + xywhr[:, 0]
+    points_4xy[:, 4] = np.round(rotate_x_func(start_x1, start_y2), 4) + xywhr[:, 0]
+    points_4xy[:, 6] = np.round(rotate_x_func(start_x2, start_y2), 4) + xywhr[:, 0]
+    
+    points_4xy[:, 1] = np.round(rotate_y_func(start_x1, start_y1), 4) + xywhr[:, 1]
+    points_4xy[:, 3] = np.round(rotate_y_func(start_x2, start_y1), 4) + xywhr[:, 1]
+    points_4xy[:, 5] = np.round(rotate_y_func(start_x1, start_y2), 4) + xywhr[:, 1]
+    points_4xy[:, 7] = np.round(rotate_y_func(start_x2, start_y2), 4) + xywhr[:, 1]
 
-    return cur_area_cuboid_arr
+    return points_4xy
 
 
+def get_label_indexes(label_col):
+    label_indexes = np.asarray([BEV_LABELS.index(x) for x in label_col])
+    return label_indexes
 
-bboxes = np.array([
-    [0.5, 0.5, 0.2, 0.1, 0.785], # 45 градусов
-    [0.2, 0.3, 0.4, 0.2, 1.57]   # ~90 градусов
-])
+def get_normalized_cuboid(cuboid_data, row, col, x_min_border, y_min_border):
+    x_min_area_border = x_min_border + row * PCD_A_W
+    y_min_area_border = y_min_border + col * PCD_A_H
+    
+    normalized_cuboid = cuboid_data.copy()
+    
+    normalized_cuboid[2] = (np.float32(normalized_cuboid[2]) - x_min_area_border) / PCD_A_W
+    normalized_cuboid[3] = (np.float32(normalized_cuboid[3]) - y_min_area_border) / PCD_A_H
+    
+    normalized_cuboid[4] = np.float32(normalized_cuboid[4]) / PCD_A_W
+    normalized_cuboid[5] = np.float32(normalized_cuboid[5]) / PCD_A_H
+    
+    return normalized_cuboid
 
-result = xywhr_to_xy4(bboxes)
-print(result)
+def get_labels(cuboid_data):
+    label_data = np.zeros((cuboid_data.shape[0], 9))
+
+    label_data[:, 0] = get_label_indexes(cuboid_data[:, 0])
+
+    xywhr = np.zeros((cuboid_data.shape[0], 5))
+    xywhr[:, :4] = cuboid_data[:, 2:6]
+    xywhr[:, 4] = cuboid_data[:, 2]
+
+    cuboid_points = xywhr_to_4xy(xywhr)
+    label_data[:, 1:] = cuboid_points
+
+    return label_data
+
+# bboxes = np.array([
+#     [0.5, 0.5, 0.2, 0.1, 0.785], # 45 градусов
+#     [0.2, 0.3, 0.4, 0.2, 1.57]   # ~90 градусов
+# ])
+
+# result = xywhr_to_xy4(bboxes)
+# print(result)

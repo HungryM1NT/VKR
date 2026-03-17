@@ -17,7 +17,6 @@ BEV_LABELS = ast.literal_eval(config['CONSTANTS']['BEV_LABELS'])
 PANDASET_PATH = './training/Pandaset'
 BEV_DATASET_PATH = './training/BEV_Dataset'
 
-
 def write_imgs(imgs, imgs_path, pandaset_folder_num, file):
     for idx in range(len(imgs)):
         img = cv2.cvtColor(imgs[idx].astype(np.uint8), cv2.COLOR_RGB2BGR)
@@ -30,13 +29,13 @@ def get_bev_imgs_with_labels(cuboids_array, points_array):
     z_min = np.min(points_array[:, 2])
     z_max = np.max(points_array[:, 2])
     
-    x_min = np.min(cuboids_array[:, 3])
-    x_max = np.max(cuboids_array[:, 3])
-    x_max_dim = np.max(cuboids_array[:, 6])
+    x_min = np.min(cuboids_array[:, 2])
+    x_max = np.max(cuboids_array[:, 2])
+    x_max_dim = np.max(cuboids_array[:, 4])
 
-    y_min = np.min(cuboids_array[:, 4])
-    y_max = np.max(cuboids_array[:, 4])
-    y_max_dim = np.max(cuboids_array[:, 7])
+    y_min = np.min(cuboids_array[:, 3])
+    y_max = np.max(cuboids_array[:, 3])
+    y_max_dim = np.max(cuboids_array[:, 5])
 
     x_min_border = max(x_min - x_max_dim, -WM)
     x_max_border = min(x_max + x_max_dim, WM)
@@ -57,14 +56,16 @@ def get_bev_imgs_with_labels(cuboids_array, points_array):
         for col in range(col_num):
             cur_area_point_arr = np.asarray(point_areas[row][col])
             cur_area_cuboid_arr = np.asarray(cuboid_areas[row][col])
-            cur_area_cuboid_arr = get_relative_cuboid_arr(cur_area_cuboid_arr, row, col, x_min_border, y_min_border)
-
+            
             if len(cur_area_cuboid_arr) * len(cur_area_point_arr) == 0:
                 continue
             
             img_map = pcd_to_img_map(cur_area_point_arr, row, col, x_min_border, y_min_border, z_min, z_max)
             bevImage = img_map * 255
             images.append(bevImage)
+            
+            area_labels = get_labels(cur_area_cuboid_arr)
+            labels.append(area_labels)
             
             # labels_in_one_area = np.zeros((len(cur_area_cuboid_arr), 9))
             # for idx in range(len(cur_area_cuboid_arr)):

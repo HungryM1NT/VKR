@@ -20,6 +20,7 @@ BEV_DATASET_PATH = './training/BEV_Dataset'
 def write_imgs(imgs, imgs_path, pandaset_folder_num, file):
     for idx in range(len(imgs)):
         img = cv2.cvtColor(imgs[idx].astype(np.uint8), cv2.COLOR_RGB2BGR)
+        
         write_path = f"{imgs_path}/{pandaset_folder_num}_{file[:-4]}_{idx:02d}.jpg"
         cv2.imwrite(write_path, img)
     # img = cv2.cvtColor(bevImage.astype('float32'), cv.COLOR_RGB2BGR)
@@ -82,13 +83,13 @@ def create_BEV_dataset():
         print('Неверный путь к Pandaset')
 
     os.mkdir(BEV_DATASET_PATH)
-    images_path = f"{BEV_DATASET_PATH}/images/"
-    lables_path = f"{BEV_DATASET_PATH}/labels/"
+    images_path = f"{BEV_DATASET_PATH}/images"
+    labels_path = f"{BEV_DATASET_PATH}/labels"
     os.mkdir(images_path)
-    os.mkdir(lables_path)
+    os.mkdir(labels_path)
     
     pandaset_folders = os.listdir(PANDASET_PATH)
-    pandaset_folders.remove('047')
+    pandaset_folders.remove('047') # Идея с локализацией
     pandaset_folders = ['001']
     for pandaset_folder_num in pandaset_folders:
         pandaset_folder_path = f'{PANDASET_PATH}/{pandaset_folder_num}'

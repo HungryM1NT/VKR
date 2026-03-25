@@ -11,3 +11,4 @@ wheels/
 .vscode
 Pandaset/
 BEV_Dataset/
+YOLO_data/

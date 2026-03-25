@@ -1,6 +1,9 @@
 import configparser
 import numpy as np
 import ast
+import os
+import shutil
+import yaml
 
 
 def parse_configs(config):
@@ -20,6 +23,10 @@ def parse_configs(config):
             pcd_area_width, pcd_area_height,
             bev_width, bev_height,
             width_magic, height_magic)
+
+def check_shuffle_perc():
+    if float(config['BEV_SHUFFLE']['TRAIN_PERC']) + float(config['BEV_SHUFFLE']['TEST_PERC']) >= 100:
+        raise RuntimeError("Процент Train и Test слишком велик (сумма больше или равна 100 процентам)")
     
     
 config = configparser.ConfigParser()
@@ -27,6 +34,15 @@ config.read('settings.conf')
 CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
 
 BEV_LABELS = ast.literal_eval(config['CONSTANTS']['BEV_LABELS'])
+
+BEV_DATASET_PATH = config['PATHS']['BEV_DATASET_PATH']
+YOLO_DATASET_PATH = config['PATHS']['YOLO_DATASET_PATH']
+
+RANDOM_STATE = int(config['BEV_SHUFFLE']['RANDOM_STATE']) if bool(config['BEV_SHUFFLE']['USE_RANDOM_STATE']) else None
+
+check_shuffle_perc()
+TRAIN_PART = float(config['BEV_SHUFFLE']['TRAIN_PERC']) / 100
+TEST_PART = float(config['BEV_SHUFFLE']['TEST_PERC']) / 100
 
     
 # Распределение всех точек по необходимым зонам (row_num x col_num)
@@ -162,3 +178,59 @@ def get_labels(cuboid_data):
     label_data[1:] = cuboid_points
 
     return label_data
+
+def create_yolo_data_folder(img_files, label_files, folder_name):
+    copy_folder = f"{YOLO_DATASET_PATH}/{folder_name}"
+    os.mkdir(copy_folder)
+    os.mkdir(f"{copy_folder}/images/")
+    os.mkdir(f"{copy_folder}/labels/")
+    for i in range(len(img_files)):
+        shutil.copy(img_files[i], f"{copy_folder}/images/")
+        shutil.copy(label_files[i], f"{copy_folder}/labels/")
+
+def create_yaml_file():
+    yaml_path = f'{YOLO_DATASET_PATH}/data.yaml'
+    yaml_data = {
+        'path': os.path.abspath(YOLO_DATASET_PATH),
+        'train': 'train/images',
+        'val': 'validation/images',
+        'test': 'test/images',
+        'train_label_dir': "train/labels",
+        'val_label_dir': 'validation/labels',
+        'test_label_dir': 'test/labels',
+        'names': {i: name for i, name in enumerate(BEV_LABELS)}
+    }
+    
+    with open(yaml_path, 'w') as f:
+        yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
+
+def create_yolo_data():
+    images_path = f"{BEV_DATASET_PATH}/images"
+    image_files = np.asarray([f'{images_path}/{x}' for x in os.listdir(images_path)])
+    image_files.sort()
+    
+    labels_path = f"{BEV_DATASET_PATH}/labels"
+    label_files = np.asarray([f'{labels_path}/{x}' for x in os.listdir(labels_path)])
+    label_files.sort()
+    
+    rng = np.random.RandomState(RANDOM_STATE)
+    indexes = rng.permutation(np.arange(image_files.size))
+    
+    train_indexes = indexes[0:int(TRAIN_PART * len(indexes))]
+    test_indexes = indexes[len(train_indexes):len(train_indexes) + int(TEST_PART * len(indexes))]
+    validation_indexes = indexes[len(train_indexes) + len(test_indexes):]
+
+    train_img_files = image_files[train_indexes];            train_label_files = label_files[train_indexes]
+    validation_img_files = image_files[validation_indexes];  validation_label_files = label_files[validation_indexes]
+    test_img_files = image_files[test_indexes];              test_label_files = label_files[test_indexes]
+
+    if os.path.exists(YOLO_DATASET_PATH):
+        shutil.rmtree(YOLO_DATASET_PATH)
+
+    os.makedirs(YOLO_DATASET_PATH, exist_ok=True)
+    
+    create_yolo_data_folder(train_img_files, train_label_files, 'train')
+    create_yolo_data_folder(test_img_files, test_label_files, 'test')
+    create_yolo_data_folder(validation_img_files, validation_label_files, 'validation')
+    
+    create_yaml_file()

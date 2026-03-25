@@ -16,8 +16,11 @@ CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
 
 BEV_LABELS = ast.literal_eval(config['CONSTANTS']['BEV_LABELS'])
 
-PANDASET_PATH = config['CONSTANTS']['PANDASET_PATH']
-BEV_DATASET_PATH = config['CONSTANTS']['BEV_DATASET_PATH']
+PANDASET_PATH = config['PATHS']['PANDASET_PATH']
+BEV_DATASET_PATH = config['PATHS']['BEV_DATASET_PATH']
+YOLO_DATASET_PATH = config['PATHS']['YOLO_DATASET_PATH']
+
+NEED_SHUFFLE = bool(config['BEV_SHUFFLE']['NEED_SHUFFLE'])
 
 
 def write_imgs(imgs, imgs_path, pandaset_folder_num, file):
@@ -26,8 +29,6 @@ def write_imgs(imgs, imgs_path, pandaset_folder_num, file):
         
         write_path = f"{imgs_path}/{pandaset_folder_num}_{file[:-4]}_{idx:02d}.jpg"
         cv2.imwrite(write_path, img)
-    # img = cv2.cvtColor(bevImage.astype('float32'), cv.COLOR_RGB2BGR)
-    #     cv.imwrite(imgSavePath, img)
     
 def write_labels(all_labels, labels_path, pandaset_folder_num, file):
     def labels_to_text(labels):
@@ -122,7 +123,7 @@ def create_BEV_dataset():
             
             write_imgs(imgs, images_path, pandaset_folder_num, file)
             write_labels(all_labels, labels_path, pandaset_folder_num, file)
-            # print(labels)
+
             
         
         
@@ -133,10 +134,10 @@ def create_BEV_dataset():
 def main():
     if not os.path.exists(BEV_DATASET_PATH):
         create_BEV_dataset()
-
+    
+    if NEED_SHUFFLE:
+        create_yolo_data()
 
 
 if __name__ == "__main__":
     main()
-
-    # 32 7 7 1

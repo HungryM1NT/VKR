@@ -7,15 +7,18 @@ from PIL import Image
 import configparser
 from utils import *
 import os
+from tqdm import tqdm
 
 
 config = configparser.ConfigParser()
 config.read('settings.conf')
 CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
+
 BEV_LABELS = ast.literal_eval(config['CONSTANTS']['BEV_LABELS'])
 
-PANDASET_PATH = './training/Pandaset'
-BEV_DATASET_PATH = './training/BEV_Dataset'
+PANDASET_PATH = config['CONSTANTS']['PANDASET_PATH']
+BEV_DATASET_PATH = config['CONSTANTS']['BEV_DATASET_PATH']
+
 
 def write_imgs(imgs, imgs_path, pandaset_folder_num, file):
     for idx in range(len(imgs)):
@@ -25,73 +28,72 @@ def write_imgs(imgs, imgs_path, pandaset_folder_num, file):
         cv2.imwrite(write_path, img)
     # img = cv2.cvtColor(bevImage.astype('float32'), cv.COLOR_RGB2BGR)
     #     cv.imwrite(imgSavePath, img)
+    
+def write_labels(all_labels, labels_path, pandaset_folder_num, file):
+    def labels_to_text(labels):
+        label_text = ''
+        for label in labels:
+            label_text += f"{int(label[0])} {" ".join(label[1:].astype(str))}\n"
+        return label_text
+
+    for idx in range(len(all_labels)):
+        labels = all_labels[idx]
+        label_text = labels_to_text(labels)
+        
+        write_path = f"{labels_path}/{pandaset_folder_num}_{file[:-4]}_{idx:02d}.txt"
+        with open(write_path, 'w') as labelfile:
+            labelfile.write(label_text)
 
 def get_bev_imgs_with_labels(cuboids_array, points_array):
+    x_min_border = -WM
+    x_max_border = WM
+
+    y_min_border = -HM
+    y_max_border = HM
+    
     z_min = np.min(points_array[:, 2])
     z_max = np.max(points_array[:, 2])
-    
-    x_min = np.min(cuboids_array[:, 2])
-    x_max = np.max(cuboids_array[:, 2])
-    x_max_dim = np.max(cuboids_array[:, 4])
-
-    y_min = np.min(cuboids_array[:, 3])
-    y_max = np.max(cuboids_array[:, 3])
-    y_max_dim = np.max(cuboids_array[:, 5])
-
-    x_min_border = max(x_min - x_max_dim, -WM)
-    x_max_border = min(x_max + x_max_dim, WM)
-
-    y_min_border = max(y_min - y_max_dim, -HM)
-    y_max_border = min(y_max + y_max_dim, HM)
     
     row_num = int((x_max_border - x_min_border - 1) // PCD_A_W + 1)
     col_num = int((y_max_border - y_min_border - 1) // PCD_A_H + 1)
     
     point_areas = get_point_areas(points_array, row_num, col_num, x_min_border, y_min_border)
-    cuboid_areas = get_cuboid_areas(cuboids_array, row_num, col_num, x_min_border, y_min_border)
+    label_areas = get_label_areas(cuboids_array, row_num, col_num, x_min_border, y_min_border)
     
     images = []
-    labels = []
+    all_labels = []
     
     for row in range(row_num):
         for col in range(col_num):
             cur_area_point_arr = np.asarray(point_areas[row][col])
-            cur_area_cuboid_arr = np.asarray(cuboid_areas[row][col])
+            cur_area_label_arr = np.asarray(label_areas[row][col])
             
-            if len(cur_area_cuboid_arr) * len(cur_area_point_arr) == 0:
+            if len(cur_area_label_arr) * len(cur_area_point_arr) == 0:
                 continue
             
             img_map = pcd_to_img_map(cur_area_point_arr, row, col, x_min_border, y_min_border, z_min, z_max)
             bevImage = img_map * 255
             images.append(bevImage)
             
-            area_labels = get_labels(cur_area_cuboid_arr)
-            labels.append(area_labels)
-            
-            # labels_in_one_area = np.zeros((len(cur_area_cuboid_arr), 9))
-            # for idx in range(len(cur_area_cuboid_arr)):
-            #     cuboid = cur_area_cuboid_arr[idx]
-            #     points = xywhr_to_xy4(cuboid[3], cuboid[4], cuboid[6], cuboid[7], cuboid[2])
-            #     labels_in_one_area
-            #     labels.append([cuboid[1]] + points)
+            all_labels.append(cur_area_label_arr)
     
-    return images, labels
+    return images, all_labels
             
             
 def create_BEV_dataset():
     if not os.path.exists(PANDASET_PATH):
         print('Неверный путь к Pandaset')
 
-    os.mkdir(BEV_DATASET_PATH)
+    os.makedirs(BEV_DATASET_PATH, exist_ok=True)
     images_path = f"{BEV_DATASET_PATH}/images"
     labels_path = f"{BEV_DATASET_PATH}/labels"
-    os.mkdir(images_path)
-    os.mkdir(labels_path)
+    os.makedirs(images_path, exist_ok=True)
+    os.makedirs(labels_path, exist_ok=True)
     
     pandaset_folders = os.listdir(PANDASET_PATH)
     pandaset_folders.remove('047') # Идея с локализацией
-    pandaset_folders = ['001']
-    for pandaset_folder_num in pandaset_folders:
+
+    for pandaset_folder_num in tqdm(pandaset_folders, desc="Pandaset folders", position=0):
         pandaset_folder_path = f'{PANDASET_PATH}/{pandaset_folder_num}'
         lidar_path = f'{pandaset_folder_path}/lidar'
         cuboids_path = f'{pandaset_folder_path}/annotations/cuboids'
@@ -105,20 +107,22 @@ def create_BEV_dataset():
         
         files = os.listdir(cuboids_path)
         for file in files:
-            with open(f'{cuboids_path}\{file}', 'rb') as f:
+            with open(f'{cuboids_path}/{file}', 'rb') as f:
                 cuboids_data = pickle.load(f)
+                cuboids_data = cuboids_data[cuboids_data['cuboids.sensor_id'].isin([-1, 0])]
                 cuboids_data = cuboids_data[CUB_COL]
                 cuboids_data = cuboids_data[cuboids_data['label'].isin(BEV_LABELS)]
                 cuboids_array = cuboids_data.to_numpy()
 
-            with open(f'{lidar_path}\{file}', 'rb') as f:
+            with open(f'{lidar_path}/{file}', 'rb') as f:
                 lidar_data = pickle.load(f)
                 points_array = lidar_data[PCD_COL].to_numpy()
             
-            imgs, labels = get_bev_imgs_with_labels(cuboids_array, points_array)
+            imgs, all_labels = get_bev_imgs_with_labels(cuboids_array, points_array)
             
             write_imgs(imgs, images_path, pandaset_folder_num, file)
-            print(labels)
+            write_labels(all_labels, labels_path, pandaset_folder_num, file)
+            # print(labels)
             
         
         

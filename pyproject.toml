@@ -11,4 +11,5 @@ dependencies = [
     "pandas>=3.0.1",
     "pillow>=12.1.1",
     "pypcd4>=1.4.3",
+    "tqdm>=4.67.3",
 ]

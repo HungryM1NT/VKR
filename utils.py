@@ -25,6 +25,7 @@ def parse_configs(config):
 config = configparser.ConfigParser()
 config.read('settings.conf')
 CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
+
 BEV_LABELS = ast.literal_eval(config['CONSTANTS']['BEV_LABELS'])
 
     
@@ -42,17 +43,20 @@ def get_point_areas(points_array, row_num, col_num, x_min_border, y_min_border):
     return point_areas
 
 # Распределение всех лейблов по необходимым зонам (row_num x col_num)
-def get_cuboid_areas(cuboids_array, row_num, col_num, x_min_border, y_min_border):
-    cuboid_areas = [[[] for _ in range((col_num))] for _ in range(row_num)]
+def get_label_areas(cuboids_array, row_num, col_num, x_min_border, y_min_border):
+    label_areas = [[[] for _ in range((col_num))] for _ in range(row_num)]
 
     for cuboid in cuboids_array:
         x_idx = int((cuboid[2] - x_min_border) // PCD_A_W)
         y_idx = int((cuboid[3] - y_min_border) // PCD_A_H)
         if x_idx >= 0 and y_idx >= 0 and x_idx < row_num and y_idx < col_num:
-            normalize_cuboid(cuboid, x_idx, y_idx, x_min_border, y_min_border)
-            cuboid_areas[x_idx][y_idx].append(cuboid)
+            normalize_cuboid = get_normalized_cuboid(cuboid, x_idx, y_idx, x_min_border, y_min_border)
+            cuboid_labels = get_labels(normalize_cuboid)
+            if np.min(cuboid_labels[1:]) < 0 or np.max(cuboid_labels[1:]) > 1:
+                continue
+            label_areas[x_idx][y_idx].append(cuboid_labels)
     
-    return cuboid_areas
+    return label_areas
 
 # Create (x, y): (counts, maxZ) dict
 def get_CoordToCountValInt_dict(points):
@@ -106,43 +110,30 @@ def pcd_to_img_map(points_array, x_idx, y_idx, x_min_border, y_min_border, z_min
     return img_map
 
 def xywhr_to_4xy(xywhr):
-    def rotate_x(a):
-        cos_a = np.cos(a)
-        sin_a = np.sin(a)
-        return lambda x, y: x * cos_a - y * sin_a
-
-    def rotate_y(a):
-        cos_a = np.cos(a)
-        sin_a = np.sin(a)
-        return lambda x, y: x * sin_a + y * cos_a
-
-    start_x1 = - xywhr[:, 2] / 2
-    start_x2 = xywhr[:, 2] / 2
-    start_y1 = xywhr[:, 3] / 2
-    start_y2 = -xywhr[:, 3] / 2
+    cy, cx, w, h, r = xywhr
+    yaw = r - np.pi / 2
     
-    # print(start_x1)
-    rotate_x_func = rotate_x(xywhr[:, 4])
-    rotate_y_func = rotate_y(xywhr[:, 4])
+    cos_a = np.cos(yaw)
+    sin_a = np.sin(yaw)
     
-    points_4xy = np.zeros((xywhr.shape[0], 8))
+    R = np.array([[cos_a, -sin_a], 
+                  [sin_a,  cos_a]])
     
-    points_4xy[:, 0] = np.round(rotate_x_func(start_x1, start_y1), 4) + xywhr[:, 0]
-    points_4xy[:, 2] = np.round(rotate_x_func(start_x2, start_y1), 4) + xywhr[:, 0]
-    points_4xy[:, 4] = np.round(rotate_x_func(start_x1, start_y2), 4) + xywhr[:, 0]
-    points_4xy[:, 6] = np.round(rotate_x_func(start_x2, start_y2), 4) + xywhr[:, 0]
+    dx, dy = w / 2, h / 2
+    corners = np.array([
+        [-dx,  dy],
+        [ dx,  dy],
+        [-dx, -dy],
+        [ dx, -dy]
+    ])
     
-    points_4xy[:, 1] = np.round(rotate_y_func(start_x1, start_y1), 4) + xywhr[:, 1]
-    points_4xy[:, 3] = np.round(rotate_y_func(start_x2, start_y1), 4) + xywhr[:, 1]
-    points_4xy[:, 5] = np.round(rotate_y_func(start_x1, start_y2), 4) + xywhr[:, 1]
-    points_4xy[:, 7] = np.round(rotate_y_func(start_x2, start_y2), 4) + xywhr[:, 1]
+    points = np.round(corners @ R + [cx, cy], 4)
+    
+    return points.flatten()
 
-    return points_4xy
-
-
-def get_label_indexes(label_col):
-    label_indexes = np.asarray([BEV_LABELS.index(x) for x in label_col])
-    return label_indexes
+def get_label_index(label):
+    label_index = BEV_LABELS.index(label)
+    return label_index
 
 def get_normalized_cuboid(cuboid_data, row, col, x_min_border, y_min_border):
     x_min_area_border = x_min_border + row * PCD_A_W
@@ -159,23 +150,15 @@ def get_normalized_cuboid(cuboid_data, row, col, x_min_border, y_min_border):
     return normalized_cuboid
 
 def get_labels(cuboid_data):
-    label_data = np.zeros((cuboid_data.shape[0], 9))
+    label_data = np.zeros(9)
 
-    label_data[:, 0] = get_label_indexes(cuboid_data[:, 0])
+    label_data[0] = get_label_index(cuboid_data[0])
 
-    xywhr = np.zeros((cuboid_data.shape[0], 5))
-    xywhr[:, :4] = cuboid_data[:, 2:6]
-    xywhr[:, 4] = cuboid_data[:, 2]
+    xywhr = np.zeros(5)
+    xywhr[:4] = cuboid_data[2:6]
+    xywhr[4] = cuboid_data[1] 
 
     cuboid_points = xywhr_to_4xy(xywhr)
-    label_data[:, 1:] = cuboid_points
+    label_data[1:] = cuboid_points
 
     return label_data
-
-# bboxes = np.array([
-#     [0.5, 0.5, 0.2, 0.1, 0.785], # 45 градусов
-#     [0.2, 0.3, 0.4, 0.2, 1.57]   # ~90 градусов
-# ])
-
-# result = xywhr_to_xy4(bboxes)
-# print(result)

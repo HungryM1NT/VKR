@@ -4,6 +4,7 @@ import ast
 import os
 import shutil
 import yaml
+import cv2
 
 
 def parse_configs(config):
@@ -185,8 +186,8 @@ def create_yolo_data_folder(img_files, label_files, folder_name):
     os.mkdir(f"{copy_folder}/images/")
     os.mkdir(f"{copy_folder}/labels/")
     for i in range(len(img_files)):
-        shutil.copy(img_files[i], f"{copy_folder}/images/")
-        shutil.copy(label_files[i], f"{copy_folder}/labels/")
+        shutil.copy(img_files[i], f"{copy_folder}/images/{img_files[i][-13:-10]}_{img_files[i][-9:]}")
+        shutil.copy(label_files[i], f"{copy_folder}/labels/{label_files[i][-13:-10]}_{label_files[i][-9:]}")
 
 def create_yaml_file():
     yaml_path = f'{YOLO_DATASET_PATH}/data.yaml'
@@ -204,33 +205,89 @@ def create_yaml_file():
     with open(yaml_path, 'w') as f:
         yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
 
-def create_yolo_data():
+def get_img_label_files(folders):
     images_path = f"{BEV_DATASET_PATH}/images"
-    image_files = np.asarray([f'{images_path}/{x}' for x in os.listdir(images_path)])
-    image_files.sort()
-    
     labels_path = f"{BEV_DATASET_PATH}/labels"
-    label_files = np.asarray([f'{labels_path}/{x}' for x in os.listdir(labels_path)])
-    label_files.sort()
     
+    train_img_files = [f"{images_path}/{x}/{y}"
+                       for x in folders
+                       for y in os.listdir(f"{images_path}/{x}")]
+    train_label_files = [f"{labels_path}/{x}/{y}"
+                       for x in folders
+                       for y in os.listdir(f"{labels_path}/{x}")]
+    
+    return (train_img_files, train_label_files)
+
+def get_train_test_val_files(data_files):
     rng = np.random.RandomState(RANDOM_STATE)
-    indexes = rng.permutation(np.arange(image_files.size))
+    indexes = rng.permutation(np.arange(data_files.size))
     
     train_indexes = indexes[0:int(TRAIN_PART * len(indexes))]
     test_indexes = indexes[len(train_indexes):len(train_indexes) + int(TEST_PART * len(indexes))]
     validation_indexes = indexes[len(train_indexes) + len(test_indexes):]
+    
+    train_img_lbl = get_img_label_files(data_files[train_indexes])
+    test_img_lbl = get_img_label_files(data_files[test_indexes])
+    val_img_lbl = get_img_label_files(data_files[validation_indexes])
 
-    train_img_files = image_files[train_indexes];            train_label_files = label_files[train_indexes]
-    validation_img_files = image_files[validation_indexes];  validation_label_files = label_files[validation_indexes]
-    test_img_files = image_files[test_indexes];              test_label_files = label_files[test_indexes]
+    return (train_img_lbl, test_img_lbl, val_img_lbl)
+    
+
+def create_yolo_data():
+    
+    data_files = np.asarray(os.listdir(f"{BEV_DATASET_PATH}/images"))
+    data_files.sort()
+    
+    train_files, test_files, val_files = get_train_test_val_files(data_files)
 
     if os.path.exists(YOLO_DATASET_PATH):
         shutil.rmtree(YOLO_DATASET_PATH)
 
     os.makedirs(YOLO_DATASET_PATH, exist_ok=True)
     
-    create_yolo_data_folder(train_img_files, train_label_files, 'train')
-    create_yolo_data_folder(test_img_files, test_label_files, 'test')
-    create_yolo_data_folder(validation_img_files, validation_label_files, 'validation')
+    
+    create_yolo_data_folder(train_files[0], train_files[1], 'train')
+    create_yolo_data_folder(test_files[0], test_files[1], 'test')
+    create_yolo_data_folder(val_files[0], val_files[1], 'validation')
     
     create_yaml_file()
+
+def filter_empty_obbs(image, obbs, min_useful_ratio=0.03, black_thresh=10):
+    valid_indices = []
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+    for idx, obb in enumerate(obbs):
+        pts = obb[1:].reshape(4, 2)
+        
+        pts_abs = pts * np.array([BW, BH])
+        
+        pts_abs = np.round(pts_abs).astype(np.int32)
+        
+        x, y, w, h = cv2.boundingRect(pts_abs)
+        
+        x_min, y_min = max(0, x), max(0, y)
+        x_max, y_max = min(BW, x + w), min(BH, y + h)
+        
+        if x_max <= x_min or y_max <= y_min:
+            continue
+        
+        roi_gray = gray[y_min:y_max, x_min:x_max]
+        
+        local_pts = pts_abs - [x_min, y_min]
+        
+        mask = np.zeros(roi_gray.shape, dtype=np.uint8)
+        cv2.fillPoly(mask, [local_pts], 255)
+        
+        polygon_pixels = roi_gray[mask == 255]
+        
+        if len(polygon_pixels) == 0:
+            continue
+            
+        useful_pixels_count = np.sum(polygon_pixels > black_thresh)
+        useful_ratio = useful_pixels_count / len(polygon_pixels)
+        
+        if useful_ratio >= min_useful_ratio:
+            valid_indices.append(idx)
+            
+    return obbs[valid_indices]

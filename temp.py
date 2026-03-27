@@ -1,9 +1,9 @@
 from ultralytics import YOLO
 
 def main():
-    model = YOLO('last.pt')
+    model = YOLO('runs/bev_obb_model7/weights/best.pt')
 
-    image_path = './test00.png'
+    image_path = 'training/YOLO_data/test/images/044_43_00.jpg'
 
     results = model(image_path)
 

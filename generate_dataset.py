@@ -24,10 +24,13 @@ NEED_SHUFFLE = bool(config['BEV_SHUFFLE']['NEED_SHUFFLE'])
 
 
 def write_imgs(imgs, imgs_path, pandaset_folder_num, file):
+    images_full_path = f"{imgs_path}/{pandaset_folder_num}"
+    os.makedirs(images_full_path, exist_ok=True)
+    
     for idx in range(len(imgs)):
-        img = cv2.cvtColor(imgs[idx].astype(np.uint8), cv2.COLOR_RGB2BGR)
+        img = cv2.cvtColor(imgs[idx], cv2.COLOR_RGB2BGR)
         
-        write_path = f"{imgs_path}/{pandaset_folder_num}_{file[:-4]}_{idx:02d}.jpg"
+        write_path = f"{images_full_path}/{file[:-4]}_{idx:02d}.jpg"
         cv2.imwrite(write_path, img)
     
 def write_labels(all_labels, labels_path, pandaset_folder_num, file):
@@ -37,11 +40,14 @@ def write_labels(all_labels, labels_path, pandaset_folder_num, file):
             label_text += f"{int(label[0])} {" ".join(label[1:].astype(str))}\n"
         return label_text
 
+    labels_full_path = f"{labels_path}/{pandaset_folder_num}"
+    os.makedirs(labels_full_path, exist_ok=True)
+    
     for idx in range(len(all_labels)):
         labels = all_labels[idx]
         label_text = labels_to_text(labels)
         
-        write_path = f"{labels_path}/{pandaset_folder_num}_{file[:-4]}_{idx:02d}.txt"
+        write_path = f"{labels_full_path}/{file[:-4]}_{idx:02d}.txt"
         with open(write_path, 'w') as labelfile:
             labelfile.write(label_text)
 
@@ -73,10 +79,16 @@ def get_bev_imgs_with_labels(cuboids_array, points_array):
                 continue
             
             img_map = pcd_to_img_map(cur_area_point_arr, row, col, x_min_border, y_min_border, z_min, z_max)
-            bevImage = img_map * 255
-            images.append(bevImage)
+            bevImage = (img_map * 255).astype(np.uint8)
             
-            all_labels.append(cur_area_label_arr)
+            # Фильтр на пустые ббоксы
+            area_labels = cur_area_label_arr.copy()
+            area_labels = filter_empty_obbs(bevImage, area_labels)
+            if len(area_labels) == 0:
+                continue
+            
+            images.append(bevImage)
+            all_labels.append(area_labels)
     
     return images, all_labels
             

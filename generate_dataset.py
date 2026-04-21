@@ -95,7 +95,7 @@ def get_bev_imgs_with_labels(cuboids_array, points_array):
             
 def create_BEV_dataset():
     if not os.path.exists(PANDASET_PATH):
-        print('Неверный путь к Pandaset')
+        print('Неверный путь к PandaSet')
 
     os.makedirs(BEV_DATASET_PATH, exist_ok=True)
     images_path = f"{BEV_DATASET_PATH}/images"

@@ -1,13 +1,14 @@
+import os
+import json
+import cv2
 import pickle
+import configparser
 import pandas as pd
 import numpy as np
-from pypcd4 import PointCloud
-import cv2
 from PIL import Image
-import configparser
 from utils import *
-import os
 from tqdm import tqdm
+from pypcd4 import PointCloud
 
 
 config = configparser.ConfigParser()
@@ -51,12 +52,15 @@ def write_labels(all_labels, labels_path, pandaset_folder_num, file):
         with open(write_path, 'w') as labelfile:
             labelfile.write(label_text)
 
-def get_bev_imgs_with_labels(cuboids_array, points_array):
-    x_min_border = -WM
-    x_max_border = WM
+def get_bev_imgs_with_labels(cuboids_array, points_array, position):
+    x_center = position['x']
+    y_center = position['y']
+        
+    x_min_border = x_center - WM
+    x_max_border = x_center + WM
 
-    y_min_border = -HM
-    y_max_border = HM
+    y_min_border = y_center - HM
+    y_max_border = y_center + HM
     
     z_min = np.min(points_array[:, 2])
     z_max = np.max(points_array[:, 2])
@@ -119,6 +123,11 @@ def create_BEV_dataset():
             continue
         
         files = os.listdir(cuboids_path)
+        files.sort()
+        
+        with open(f'{lidar_path}/poses.json') as f:
+            json_poses = json.load(f)
+        
         for file in files:
             with open(f'{cuboids_path}/{file}', 'rb') as f:
                 cuboids_data = pickle.load(f)
@@ -130,8 +139,11 @@ def create_BEV_dataset():
             with open(f'{lidar_path}/{file}', 'rb') as f:
                 lidar_data = pickle.load(f)
                 points_array = lidar_data[PCD_COL].to_numpy()
+                
+            file_idx= files.index(file)
+            position = json_poses[file_idx]['position']
             
-            imgs, all_labels = get_bev_imgs_with_labels(cuboids_array, points_array)
+            imgs, all_labels = get_bev_imgs_with_labels(cuboids_array, points_array, position)
             
             write_imgs(imgs, images_path, pandaset_folder_num, file)
             write_labels(all_labels, labels_path, pandaset_folder_num, file)

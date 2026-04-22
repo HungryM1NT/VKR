@@ -86,9 +86,9 @@ def get_CoordToCountValInt_dict(points):
     return coord_to_countval
 
 
-def pcd_to_img_map(points_array, x_idx, y_idx, x_min_border, y_min_border, z_min, z_max):
-    x_min_area_border = x_min_border + x_idx * PCD_A_W
-    y_min_area_border = y_min_border + y_idx * PCD_A_H
+def pcd_to_img_map(points_array, x_idx, y_idx, x_min_border, y_min_border, z_min, z_max, x_stride, y_stride):
+    x_min_area_border = x_min_border + x_idx * x_stride
+    y_min_area_border = y_min_border + y_idx * y_stride
 
     # Нормализуем x,y [0: 1]
     points_array[:, 0] = (points_array[:, 0] - x_min_area_border) / PCD_A_W

@@ -31,7 +31,7 @@ def write_imgs(imgs, imgs_path, pandaset_folder_num, file):
     for idx in range(len(imgs)):
         img = cv2.cvtColor(imgs[idx], cv2.COLOR_RGB2BGR)
         
-        write_path = f"{images_full_path}/{file[:-4]}_{idx:02d}.jpg"
+        write_path = f"{images_full_path}/{file[:-4]}_{idx:02d}.png"
         cv2.imwrite(write_path, img)
     
 def write_labels(all_labels, labels_path, pandaset_folder_num, file):
@@ -82,7 +82,7 @@ def get_bev_imgs_with_labels(cuboids_array, points_array, position):
             if len(cur_area_label_arr) * len(cur_area_point_arr) == 0:
                 continue
             
-            img_map = pcd_to_img_map(cur_area_point_arr, row, col, x_min_border, y_min_border, z_min, z_max)
+            img_map = pcd_to_img_map(cur_area_point_arr, row, col, x_min_border, y_min_border, z_min, z_max, PCD_A_W, PCD_A_H)
             bevImage = (img_map * 255).astype(np.uint8)
             
             # Фильтр на пустые ббоксы

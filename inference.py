@@ -6,12 +6,14 @@ from pypcd4 import PointCloud
 from utils import parse_configs, pcd_to_img_map
 from ultralytics import YOLO
 from PIL import Image
-# import open3d as o3d
+from delete_utils import get_coords_from_bevs, delete_points, scale_obbs_percentage
 
 
 config = configparser.ConfigParser()
 config.read('settings.conf')
 CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
+
+TYPES = (np.float32, np.float32, np.float32, np.float32)
 
 
 def get_overlapping_point_areas(points_array, row_num, col_num, x_min_border, y_min_border):
@@ -55,7 +57,10 @@ def get_bev_imgs(points_array, position):
     
     point_areas = get_overlapping_point_areas(points_array, row_num, col_num, x_min_border, y_min_border)
 
+    step_x, step_y = PCD_A_W / 2, PCD_A_H / 2
+
     images = []
+    borders = []
 
     for row in range(row_num):
         for col in range(col_num):
@@ -64,17 +69,22 @@ def get_bev_imgs(points_array, position):
             if len(cur_area_point_arr) == 0:
                 continue
             
-            img_map = pcd_to_img_map(cur_area_point_arr, row, col, x_min_border, y_min_border, z_min, z_max, PCD_A_W / 2, PCD_A_H / 2)
+            img_map = pcd_to_img_map(cur_area_point_arr, row, col, x_min_border, y_min_border, z_min, z_max, step_x, step_y)
             bevImage = (img_map * 255).astype(np.uint8)
             bevImage = cv2.cvtColor(bevImage, cv2.COLOR_RGB2BGR)
             
             images.append(bevImage)
+            
+            cur_x_min_border = x_min_border + row * step_x
+            cur_y_min_border = y_min_border + col * step_y
+            
+            borders.append((cur_x_min_border, cur_y_min_border))
             # images.append(Image.fromarray(bevImage).convert('RGB'))
             
             # bevImage = cv2.cvtColor(bevImage, cv2.COLOR_BGR2RGB)
             # images.append(bevImage)
         
-    return images
+    return images, borders
 
 def main():
     # TODO: ввод не только 1 файла
@@ -84,9 +94,9 @@ def main():
     with open("training/PCD/024/poses.json") as f:
         json_poses = json.load(f)
         # TODO: json poses под pcd
-        position = json_poses[0]['position']
+        position = json_poses[5]['position']
     
-    bev_images = get_bev_imgs(points_array, position)
+    bev_images, borders = get_bev_imgs(points_array, position)
     
     # img = cv2.cvtColor(bev_images[0], cv2.COLOR_RGB2BGR)
     # cv2.imwrite(f"testaaa.jpg", img)
@@ -94,12 +104,23 @@ def main():
     
     model = YOLO('runs/bev_obb_model8/weights/best.pt')
     
-    results = model(bev_images[0])
+    results = model(bev_images)
     
-    for result in results:
-        result.show()
+    # for result in results:
+    #     result.show()
     
-    # cv2.imwrite(f"testaaaa.png", bev_images[0])
+    # print(borders[0])
+    all_coords = get_coords_from_bevs(results, borders)
+    scaled_coords = scale_obbs_percentage(all_coords, scale_factor=1.2)
+    
+    filtered_points = delete_points(points_array, scaled_coords)
+    
+    print(len(filtered_points), len(points_array))
+    clear_pcd = PointCloud.from_points(filtered_points, PCD_COL, TYPES)
+    clear_pcd.save("done1.pcd")
+    
+    # for i in range(len(bev_images)):
+    #     cv2.imwrite(f"test{i}.png", bev_images[i])
 
 
 if __name__ == "__main__":

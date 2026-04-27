@@ -90,7 +90,11 @@ def get_bev_imgs(points_array, position):
     return images, borders
 
 def main():
-    model = YOLO('runs/bev_obb_model8/weights/best.onnx')
+    model = YOLO('runs/bev_obb_model8/weights/best.engine', task='obb')
+    print("Прогрев модели...")
+    dummy_img = [np.zeros((BH, BW, 3), dtype=np.uint8)]
+    model(dummy_img, verbose=False)
+    
     # TODO: ввод не только 1 файла
     start_total_time = time.perf_counter()
     pcd = PointCloud.from_path("training/PCD/041/00.pcd")
@@ -109,29 +113,35 @@ def main():
     
     time_after_prep = time.perf_counter()
     
-    results = model(bev_images)
+    # results = model(bev_images, half=True, verbose=False)
+    # results = model(bev_images, verbose=False)
     
+    results = []
+    for img in bev_images:
+        res = model(img, verbose=False)
+        results.extend(res)
+        
     # for result in results:
     #     result.show()
     time_after_inference = time.perf_counter()
     # print(borders[0])
     
     
-    # all_coords = get_coords_from_bevs(results, borders)
-    # scaled_coords = scale_obbs_percentage(all_coords, scale_factor=1.2)
+    all_coords = get_coords_from_bevs(results, borders)
+    scaled_coords = scale_obbs_percentage(all_coords, scale_factor=1.2)
     
-    # filtered_points = delete_points(points_array,
-    #                                 scaled_coords,
-    #                                 ego_center=(position['x'], position['y']), 
-    #                                 ego_size=(5.0, 5.0))
+    filtered_points = delete_points(points_array,
+                                    scaled_coords,
+                                    ego_center=(position['x'], position['y']), 
+                                    ego_size=(5.0, 5.0))
     
     # clear_pcd = PointCloud.from_points(filtered_points, PCD_COL, TYPES)
     
     
     # clear_pcd.save("done1.pcd")
     
-    for i in range(len(bev_images)):
-        cv2.imwrite(f"aaaaa{i}.png", bev_images[i])
+    # for i in range(len(bev_images)):
+    #     cv2.imwrite(f"aaaaa{i}.png", bev_images[i])
     
     end_total_time = time.perf_counter()
     

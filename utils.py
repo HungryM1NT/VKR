@@ -50,12 +50,26 @@ TEST_PART = float(config['BEV_SHUFFLE']['TEST_PERC']) / 100
 def get_point_areas(points_array, row_num, col_num, x_min_border, y_min_border):
     point_areas = [[[] for _ in range((col_num))] for _ in range(row_num)]
 
-    for point in points_array:
+    # for point in points_array:
         
-        x_idx = int((point[0] - x_min_border) // PCD_A_W)
-        y_idx = int((point[1] - y_min_border) // PCD_A_H)
-        if x_idx >= 0 and y_idx >= 0 and x_idx < row_num and y_idx < col_num:
-            point_areas[x_idx][y_idx].append(point)
+    #     x_idx = int((point[0] - x_min_border) // PCD_A_W)
+    #     y_idx = int((point[1] - y_min_border) // PCD_A_H)
+    #     if x_idx >= 0 and y_idx >= 0 and x_idx < row_num and y_idx < col_num:
+    #         point_areas[x_idx][y_idx].append(point)
+    
+    x_idx = ((points_array[:, 0] - x_min_border) // PCD_A_W).astype(np.int32)
+    y_idx = ((points_array[:, 1] - y_min_border) // PCD_A_H).astype(np.int32)
+    
+    valid_mask = (x_idx >= 0) & (y_idx >= 0) & (x_idx < row_num) & (y_idx < col_num)
+    
+    valid_points = points_array[valid_mask]
+    valid_x = x_idx[valid_mask]
+    valid_y = y_idx[valid_mask]
+    
+    for r in range(row_num):
+        for c in range(col_num):
+            mask = (valid_x == r) & (valid_y == c)
+            point_areas[r][c] = valid_points[mask]
     
     return point_areas
 
@@ -108,21 +122,38 @@ def pcd_to_img_map(points_array, x_idx, y_idx, x_min_border, y_min_border, z_min
     height_map = np.zeros((BH, BW))
     density_map = np.zeros((BH, BW))
     intensity_map = np.zeros((BH, BW))
+    
+    points_array[:, 0] = np.clip(points_array[:, 0], 0, BW - 1)
+    points_array[:, 1] = np.clip(points_array[:, 1], 0, BH - 1)
+    
+    # coord_to_countval = get_CoordToCountValInt_dict(points_array)
 
-    points_array[:, 0] = np.minimum(np.maximum(points_array[:, 0], 0), BH - 1)
-    points_array[:, 1] = np.minimum(np.maximum(points_array[:, 1], 0), BH - 1)
+    # for ((x, y), (c, z, i)) in coord_to_countval.items():
+    #     density_map[int(x)][int(y)] = min(1.0, np.log(c + 1) / np.log(64))
+    #     height_map[int(x)][int(y)] = z
+    #     intensity_map[int(x)][int(y)] = i
 
-    coord_to_countval = get_CoordToCountValInt_dict(points_array)
+    # img_map = np.zeros([BH, BW, 3])
+    # img_map[:,:,0] = density_map
+    # img_map[:,:,1] = height_map
+    # img_map[:,:,2] = intensity_map
+    
+    x_coords = points_array[:, 0].astype(np.int32)
+    y_coords = points_array[:, 1].astype(np.int32)
 
-    for ((x, y), (c, z, i)) in coord_to_countval.items():
-        density_map[int(x)][int(y)] = min(1.0, np.log(c + 1) / np.log(64))
-        height_map[int(x)][int(y)] = z
-        intensity_map[int(x)][int(y)] = i
-
-    img_map = np.zeros([BH, BW, 3])
-    img_map[:,:,0] = density_map
-    img_map[:,:,1] = height_map
-    img_map[:,:,2] = intensity_map
+    flat_coords = x_coords * BW + y_coords
+    
+    unique_coords, indices, counts = np.unique(flat_coords, return_index=True, return_counts=True)
+    
+    # 2D Координаты
+    ux = unique_coords // BW
+    uy = unique_coords % BW
+    
+    density_map[ux, uy] = np.minimum(1.0, np.log(counts + 1) / np.log(64))
+    height_map[ux, uy] = points_array[indices, 2]
+    intensity_map[ux, uy] = points_array[indices, 3]
+    
+    img_map = np.stack([density_map, height_map, intensity_map], axis=-1)
     
     return img_map
 

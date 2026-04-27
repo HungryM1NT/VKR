@@ -8,10 +8,13 @@ dependencies = [
     "ipywidgets>=8.1.7",
     "jupyter>=1.1.1",
     "onnx>=1.21.0",
+    "onnxruntime-gpu>=1.25.0",
     "opencv-python>=4.13.0.92",
     "pandas>=3.0.1",
     "pillow>=12.1.1",
     "pypcd4>=1.4.3",
+    "tensorrt>=10.16.1.11",
+    "tensorrt-cu13>=7.0.0,!=10.1.0",
     "tqdm>=4.67.3",
     "ultralytics>=8.4.26",
 ]

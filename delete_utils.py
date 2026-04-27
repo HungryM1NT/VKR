@@ -30,16 +30,35 @@ def get_coords_from_bevs(yolo_results, borders):
     return np.array(all_coords)
 
 
-def get_delete_mask_obb(pcd_points, obb_polygons, ego_center=None, ego_size=(4.0, 4.0)):
+def get_delete_mask_obb(pcd_points, scaled_coords, ego_center=None, ego_size=(4.0, 4.0)):
     xy_points = pcd_points[:, :2]
     
-    mask = np.full((len(pcd_points)), False)
+    mask = np.zeros(len(pcd_points), dtype=bool)
     
-    for poly in obb_polygons:
-        poly_path = Path(poly)
-        inside_mask = poly_path.contains_points(xy_points)
-        
-        mask = np.logical_or(mask, inside_mask)
+    for poly in scaled_coords:
+            # Берем первые три точки прямоугольника (они идут последовательно)
+            A, B, C = poly[0], poly[1], poly[2]
+            
+            # Векторы сторон
+            AB = B - A
+            BC = C - B
+            
+            # Векторы от углов до всех точек облака
+            AP = xy_points - A
+            BP = xy_points - B
+            
+            # Скалярные произведения (векторные проекции)
+            dot_AP_AB = np.dot(AP, AB)
+            dot_AB_AB = np.dot(AB, AB)
+            
+            dot_BP_BC = np.dot(BP, BC)
+            dot_BC_BC = np.dot(BC, BC)
+            
+            # Точка внутри, если проекция лежит между 0 и длиной стороны
+            inside_mask = (0 <= dot_AP_AB) & (dot_AP_AB <= dot_AB_AB) & \
+                        (0 <= dot_BP_BC) & (dot_BP_BC <= dot_BC_BC)
+                        
+            mask |= inside_mask
         
     if ego_center is not None:
         x_center, y_center = ego_center
@@ -53,12 +72,12 @@ def get_delete_mask_obb(pcd_points, obb_polygons, ego_center=None, ego_size=(4.0
         ego_mask = (pcd_points[:, 0] >= x_min) & (pcd_points[:, 0] <= x_max) & \
                    (pcd_points[:, 1] >= y_min) & (pcd_points[:, 1] <= y_max)
                    
-        mask = np.logical_or(mask, ego_mask)
+        mask |= ego_mask
     
     return np.invert(mask)
 
-def delete_points(pcd_points, obb_polygons, ego_center=None, ego_size=(4.0, 4.0)):
-    mask = get_delete_mask_obb(pcd_points, obb_polygons, ego_center, ego_size)
+def delete_points(pcd_points, scaled_coords, ego_center=None, ego_size=(4.0, 4.0)):
+    mask = get_delete_mask_obb(pcd_points, scaled_coords, ego_center, ego_size)
     return pcd_points[mask]
 
 def scale_obbs_percentage(obbs, scale_factor):

@@ -2,8 +2,9 @@ import numpy as np
 import configparser
 import json
 import cv2
+import time
 from pypcd4 import PointCloud
-from utils import parse_configs, pcd_to_img_map
+from utils import parse_configs, pcd_to_img_map, get_point_areas
 from ultralytics import YOLO
 from PIL import Image
 from delete_utils import get_coords_from_bevs, delete_points, scale_obbs_percentage
@@ -52,12 +53,14 @@ def get_bev_imgs(points_array, position):
     z_min = np.min(points_array[:, 2])
     z_max = np.max(points_array[:, 2])
     
-    row_num = int((x_max_border - x_min_border - 1) // PCD_A_W + 1) * 2 - 1
-    col_num = int((y_max_border - y_min_border - 1) // PCD_A_H + 1) * 2 - 1
+    row_num = int((x_max_border - x_min_border - 1) // PCD_A_W + 1)
+    col_num = int((y_max_border - y_min_border - 1) // PCD_A_H + 1)
     
-    point_areas = get_overlapping_point_areas(points_array, row_num, col_num, x_min_border, y_min_border)
+    # point_areas = get_overlapping_point_areas(points_array, row_num, col_num, x_min_border, y_min_border)
+    point_areas = get_point_areas(points_array, row_num, col_num, x_min_border, y_min_border)
 
-    step_x, step_y = PCD_A_W / 2, PCD_A_H / 2
+    # step_x, step_y = PCD_A_W / 2, PCD_A_H / 2
+    step_x, step_y = PCD_A_W, PCD_A_H 
 
     images = []
     borders = []
@@ -87,40 +90,59 @@ def get_bev_imgs(points_array, position):
     return images, borders
 
 def main():
+    model = YOLO('runs/bev_obb_model8/weights/best.onnx')
     # TODO: ввод не только 1 файла
+    start_total_time = time.perf_counter()
     pcd = PointCloud.from_path("training/PCD/041/00.pcd")
     points_array = pcd.numpy(("x", "y", "z", "i"))
     
-    with open("training/PCD/024/poses.json") as f:
+    with open("training/PCD/041/poses.json") as f:
         json_poses = json.load(f)
         # TODO: json poses под pcd
-        position = json_poses[5]['position']
+        position = json_poses[0]['position']
     
+    time_after_load = time.perf_counter()
     bev_images, borders = get_bev_imgs(points_array, position)
     
     # img = cv2.cvtColor(bev_images[0], cv2.COLOR_RGB2BGR)
     # cv2.imwrite(f"testaaa.jpg", img)
     
-    
-    model = YOLO('runs/bev_obb_model8/weights/best.pt')
+    time_after_prep = time.perf_counter()
     
     results = model(bev_images)
     
     # for result in results:
     #     result.show()
-    
+    time_after_inference = time.perf_counter()
     # print(borders[0])
-    all_coords = get_coords_from_bevs(results, borders)
-    scaled_coords = scale_obbs_percentage(all_coords, scale_factor=1.2)
     
-    filtered_points = delete_points(points_array, scaled_coords)
     
-    print(len(filtered_points), len(points_array))
-    clear_pcd = PointCloud.from_points(filtered_points, PCD_COL, TYPES)
-    clear_pcd.save("done1.pcd")
+    # all_coords = get_coords_from_bevs(results, borders)
+    # scaled_coords = scale_obbs_percentage(all_coords, scale_factor=1.2)
     
-    # for i in range(len(bev_images)):
-    #     cv2.imwrite(f"test{i}.png", bev_images[i])
+    # filtered_points = delete_points(points_array,
+    #                                 scaled_coords,
+    #                                 ego_center=(position['x'], position['y']), 
+    #                                 ego_size=(5.0, 5.0))
+    
+    # clear_pcd = PointCloud.from_points(filtered_points, PCD_COL, TYPES)
+    
+    
+    # clear_pcd.save("done1.pcd")
+    
+    for i in range(len(bev_images)):
+        cv2.imwrite(f"aaaaa{i}.png", bev_images[i])
+    
+    end_total_time = time.perf_counter()
+    
+    # === ВЫВОД РЕЗУЛЬТАТОВ ===
+    total_time = end_total_time - start_total_time
+    print(f"\n--- Тайминг обработки скана ---")
+    print(f"Чтение файла:       {(time_after_load - start_total_time) * 1000:.1f} мс")
+    print(f"PCD -> BEV:         {(time_after_prep - time_after_load) * 1000:.1f} мс")
+    print(f"YOLO инференс:      {(time_after_inference - time_after_prep) * 1000:.1f} мс")
+    print(f"Постпроцессинг:     {(end_total_time - time_after_inference) * 1000:.1f} мс")
+    print(f"Итоговое время:     {total_time * 1000:.1f} мс (~{1 / total_time:.1f} FPS)\n")
 
 
 if __name__ == "__main__":

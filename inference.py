@@ -90,7 +90,7 @@ def get_bev_imgs(points_array, position):
     return images, borders
 
 def main():
-    model = YOLO('runs/bev_obb_model8/weights/best.engine', task='obb')
+    model = YOLO('runs/bev_obb_model9/weights/best.engine', task='obb')
     print("Прогрев модели...")
     dummy_img = [np.zeros((BH, BW, 3), dtype=np.uint8)]
     model(dummy_img, verbose=False)
@@ -135,10 +135,10 @@ def main():
                                     ego_center=(position['x'], position['y']), 
                                     ego_size=(5.0, 5.0))
     
-    # clear_pcd = PointCloud.from_points(filtered_points, PCD_COL, TYPES)
+    clear_pcd = PointCloud.from_points(filtered_points, PCD_COL, TYPES)
     
     
-    # clear_pcd.save("done1.pcd")
+    clear_pcd.save("done1.pcd")
     
     # for i in range(len(bev_images)):
     #     cv2.imwrite(f"aaaaa{i}.png", bev_images[i])

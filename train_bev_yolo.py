@@ -27,6 +27,8 @@ def main():
         fliplr=0.5,
         perspective=0.0,
         scale=0.5,
+        patience=20,
+        save_period=10,
     )
     
 if __name__ == "__main__":

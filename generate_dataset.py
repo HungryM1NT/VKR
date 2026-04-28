@@ -9,7 +9,10 @@ from PIL import Image
 from utils import *
 from tqdm import tqdm
 from pypcd4 import PointCloud
+import warnings
 
+
+warnings.filterwarnings("ignore", message=".*align should be passed as Python or NumPy boolean.*")
 
 config = configparser.ConfigParser()
 config.read('settings.conf')

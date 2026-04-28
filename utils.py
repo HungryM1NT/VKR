@@ -80,11 +80,10 @@ def get_label_areas(cuboids_array, row_num, col_num, x_min_border, y_min_border)
     for cuboid in cuboids_array:
         x_idx = int((cuboid[2] - x_min_border) // PCD_A_W)
         y_idx = int((cuboid[3] - y_min_border) // PCD_A_H)
+        
         if x_idx >= 0 and y_idx >= 0 and x_idx < row_num and y_idx < col_num:
             normalize_cuboid = get_normalized_cuboid(cuboid, x_idx, y_idx, x_min_border, y_min_border)
             cuboid_labels = get_labels(normalize_cuboid)
-            if np.min(cuboid_labels[1:]) < 0 or np.max(cuboid_labels[1:]) > 1:
-                continue
             label_areas[x_idx][y_idx].append(cuboid_labels)
     
     return label_areas

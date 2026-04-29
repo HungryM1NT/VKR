@@ -3,12 +3,11 @@ import json
 import cv2
 import pickle
 import configparser
-import pandas as pd
 import numpy as np
-from PIL import Image
-from utils import *
+import ast
+from ..utils.general import *
+from ..utils.preprocess_utils import *
 from tqdm import tqdm
-from pypcd4 import PointCloud
 import warnings
 
 
@@ -32,7 +31,7 @@ def write_imgs(imgs, imgs_path, pandaset_folder_num, file):
     os.makedirs(images_full_path, exist_ok=True)
     
     for idx in range(len(imgs)):
-        img = cv2.cvtColor(imgs[idx], cv2.COLOR_RGB2BGR)
+        img = imgs[idx]
         
         write_path = f"{images_full_path}/{file[:-4]}_{idx:02d}.png"
         cv2.imwrite(write_path, img)

@@ -1,6 +1,6 @@
 import configparser
 import numpy as np
-from utils import parse_configs
+from utils.general import parse_configs
 from matplotlib.path import Path
 
 
@@ -28,7 +28,6 @@ def get_coords_from_bevs(yolo_results, borders):
                 all_coords.append(corner)
                 
     return np.array(all_coords)
-
 
 def get_delete_mask_obb(pcd_points, scaled_coords, ego_center=None, ego_size=(4.0, 4.0)):
     xy_points = pcd_points[:, :2]
@@ -73,12 +72,17 @@ def get_delete_mask_obb(pcd_points, scaled_coords, ego_center=None, ego_size=(4.
                    (pcd_points[:, 1] >= y_min) & (pcd_points[:, 1] <= y_max)
                    
         mask |= ego_mask
+        
+    # if not full_scan:
+    #     pass
     
     return np.invert(mask)
+
 
 def delete_points(pcd_points, scaled_coords, ego_center=None, ego_size=(4.0, 4.0)):
     mask = get_delete_mask_obb(pcd_points, scaled_coords, ego_center, ego_size)
     return pcd_points[mask]
+
 
 def scale_obbs_percentage(obbs, scale_factor):
     if len(obbs) == 0:
@@ -89,3 +93,12 @@ def scale_obbs_percentage(obbs, scale_factor):
     scaled_obbs = (obbs - centers) * scale_factor + centers
     
     return scaled_obbs
+
+def get_work_pcd_area(pcd_points):
+    mask_x = (pcd_points[:, 0] >= -WM) & (pcd_points[:, 0] <= WM)
+    
+    mask_y = (pcd_points[:, 1] >= -HM) & (pcd_points[:, 1] <= HM)
+    
+    valid_points_mask = mask_x & mask_y
+    
+    return pcd_points[valid_points_mask]

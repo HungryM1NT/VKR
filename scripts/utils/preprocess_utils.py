@@ -5,25 +5,8 @@ import os
 import shutil
 import yaml
 import cv2
+from .general import parse_configs
 
-
-def parse_configs(config):
-    constants = config['CONSTANTS']
-    cuboid_columns = ast.literal_eval(constants['CUBOIDS_COLUMNS'])
-    pcd_columns = ast.literal_eval(constants['PCD_COLUMNS'])
-
-    pcd_area_width = int(constants['PCD_AREA_WIDTH'])
-    pcd_area_height = int(constants['PCD_AREA_HEIGHT'])
-
-    bev_width = int(constants['BEV_WIDTH'])
-    bev_height = int(constants['BEV_HEIGHT'])
-
-    width_magic = int(constants['WIDTH_MAGIC'])
-    height_magic = int(constants['HEIGHT_MAGIC'])
-    return (cuboid_columns, pcd_columns,
-            pcd_area_width, pcd_area_height,
-            bev_width, bev_height,
-            width_magic, height_magic)
 
 def check_shuffle_perc():
     if float(config['BEV_SHUFFLE']['TRAIN_PERC']) + float(config['BEV_SHUFFLE']['TEST_PERC']) >= 100:
@@ -45,33 +28,6 @@ check_shuffle_perc()
 TRAIN_PART = float(config['BEV_SHUFFLE']['TRAIN_PERC']) / 100
 TEST_PART = float(config['BEV_SHUFFLE']['TEST_PERC']) / 100
 
-    
-# Распределение всех точек по необходимым зонам (row_num x col_num)
-def get_point_areas(points_array, row_num, col_num, x_min_border, y_min_border):
-    point_areas = [[[] for _ in range((col_num))] for _ in range(row_num)]
-
-    # for point in points_array:
-        
-    #     x_idx = int((point[0] - x_min_border) // PCD_A_W)
-    #     y_idx = int((point[1] - y_min_border) // PCD_A_H)
-    #     if x_idx >= 0 and y_idx >= 0 and x_idx < row_num and y_idx < col_num:
-    #         point_areas[x_idx][y_idx].append(point)
-    
-    x_idx = ((points_array[:, 0] - x_min_border) // PCD_A_W).astype(np.int32)
-    y_idx = ((points_array[:, 1] - y_min_border) // PCD_A_H).astype(np.int32)
-    
-    valid_mask = (x_idx >= 0) & (y_idx >= 0) & (x_idx < row_num) & (y_idx < col_num)
-    
-    valid_points = points_array[valid_mask]
-    valid_x = x_idx[valid_mask]
-    valid_y = y_idx[valid_mask]
-    
-    for r in range(row_num):
-        for c in range(col_num):
-            mask = (valid_x == r) & (valid_y == c)
-            point_areas[r][c] = valid_points[mask]
-    
-    return point_areas
 
 # Распределение всех лейблов по необходимым зонам (row_num x col_num)
 def get_label_areas(cuboids_array, row_num, col_num, x_min_border, y_min_border):
@@ -87,74 +43,6 @@ def get_label_areas(cuboids_array, row_num, col_num, x_min_border, y_min_border)
             label_areas[x_idx][y_idx].append(cuboid_labels)
     
     return label_areas
-
-# Create (x, y): (counts, maxZ) dict
-def get_CoordToCountValInt_dict(points):
-    coord_to_countval = dict()
-    for point in points:
-        if coord_to_countval.get((point[0], point[1])) == None:
-            coord_to_countval[((point[0], point[1]))] = [1, point[2], point[3]]
-        else:
-            coord_to_countval[((point[0], point[1]))][0] += 1
-    return coord_to_countval
-
-
-def pcd_to_img_map(points_array, x_idx, y_idx, x_min_border, y_min_border, z_min, z_max, x_stride, y_stride):
-    x_min_area_border = x_min_border + x_idx * x_stride
-    y_min_area_border = y_min_border + y_idx * y_stride
-
-    # Нормализуем x,y [0: 1]
-    points_array[:, 0] = (points_array[:, 0] - x_min_area_border) / PCD_A_W
-    points_array[:, 1] = (points_array[:, 1] - y_min_area_border) / PCD_A_H
-
-    # Приводим x,y к [0: BEV_H/BEV_W]
-    points_array[:, 0] = np.int32(points_array[:, 0] * BW)
-    points_array[:, 1] = np.int32(points_array[:, 1] * BH)
-
-    # Приводим z к [0, 1]
-    points_array[:, 2] = (points_array[:, 2] - z_min) / (z_max - z_min)
-
-    # Сортируем (увел х, увел y, умен z)
-    ix = np.lexsort((-points_array[:, 2], points_array[:, 1], points_array[:, 0]))
-    points_array = points_array[ix]
-
-    height_map = np.zeros((BH, BW))
-    density_map = np.zeros((BH, BW))
-    intensity_map = np.zeros((BH, BW))
-    
-    points_array[:, 0] = np.clip(points_array[:, 0], 0, BW - 1)
-    points_array[:, 1] = np.clip(points_array[:, 1], 0, BH - 1)
-    
-    # coord_to_countval = get_CoordToCountValInt_dict(points_array)
-
-    # for ((x, y), (c, z, i)) in coord_to_countval.items():
-    #     density_map[int(x)][int(y)] = min(1.0, np.log(c + 1) / np.log(64))
-    #     height_map[int(x)][int(y)] = z
-    #     intensity_map[int(x)][int(y)] = i
-
-    # img_map = np.zeros([BH, BW, 3])
-    # img_map[:,:,0] = density_map
-    # img_map[:,:,1] = height_map
-    # img_map[:,:,2] = intensity_map
-    
-    x_coords = points_array[:, 0].astype(np.int32)
-    y_coords = points_array[:, 1].astype(np.int32)
-
-    flat_coords = x_coords * BW + y_coords
-    
-    unique_coords, indices, counts = np.unique(flat_coords, return_index=True, return_counts=True)
-    
-    # 2D Координаты
-    ux = unique_coords // BW
-    uy = unique_coords % BW
-    
-    density_map[ux, uy] = np.minimum(1.0, np.log(counts + 1) / np.log(64))
-    height_map[ux, uy] = points_array[indices, 2]
-    intensity_map[ux, uy] = points_array[indices, 3]
-    
-    img_map = np.stack([density_map, height_map, intensity_map], axis=-1)
-    
-    return img_map
 
 def xywhr_to_4xy(xywhr):
     cy, cx, w, h, r = xywhr
@@ -264,7 +152,6 @@ def get_train_test_val_files(data_files):
     
 
 def create_yolo_data():
-    
     data_files = np.asarray(os.listdir(f"{BEV_DATASET_PATH}/images"))
     data_files.sort()
     

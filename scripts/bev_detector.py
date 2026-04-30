@@ -2,8 +2,8 @@ import time
 import numpy as np
 import configparser
 from pypcd4 import PointCloud
-from utils.general import parse_configs, get_point_areas, pcd_to_img_map
-from utils.inference_utils import get_coords_from_bevs,scale_obbs_percentage, delete_points, get_work_pcd_area
+from utils.general import parse_configs, get_point_areas, pcd_to_img_map, get_work_pcd_area
+from utils.inference_utils import get_coords_from_bevs,scale_obbs_percentage, delete_points
 
 
 config = configparser.ConfigParser()
@@ -71,7 +71,7 @@ class BEV_DETECTOR:
         
         coords = self.detect(pcd_points, x_center, y_center)
         
-        filtered_points = self.delete(pcd_points, coords)
+        filtered_points = self.delete(pcd_points, coords, x_center, y_center)
         
         return filtered_points
     

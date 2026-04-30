@@ -92,3 +92,12 @@ def get_point_areas(points_array, row_num, col_num, x_min_border, y_min_border):
             point_areas[r][c] = valid_points[mask]
     
     return point_areas
+
+def get_work_pcd_area(pcd_points):
+    mask_x = (pcd_points[:, 0] >= -WM) & (pcd_points[:, 0] <= WM)
+    
+    mask_y = (pcd_points[:, 1] >= -HM) & (pcd_points[:, 1] <= HM)
+    
+    valid_points_mask = mask_x & mask_y
+    
+    return pcd_points[valid_points_mask]

@@ -1,7 +1,6 @@
 import configparser
 import numpy as np
 from utils.general import parse_configs
-from matplotlib.path import Path
 
 
 config = configparser.ConfigParser()
@@ -73,8 +72,6 @@ def get_delete_mask_obb(pcd_points, scaled_coords, ego_center=None, ego_size=(4.
                    
         mask |= ego_mask
         
-    # if not full_scan:
-    #     pass
     
     return np.invert(mask)
 
@@ -93,12 +90,3 @@ def scale_obbs_percentage(obbs, scale_factor):
     scaled_obbs = (obbs - centers) * scale_factor + centers
     
     return scaled_obbs
-
-def get_work_pcd_area(pcd_points):
-    mask_x = (pcd_points[:, 0] >= -WM) & (pcd_points[:, 0] <= WM)
-    
-    mask_y = (pcd_points[:, 1] >= -HM) & (pcd_points[:, 1] <= HM)
-    
-    valid_points_mask = mask_x & mask_y
-    
-    return pcd_points[valid_points_mask]

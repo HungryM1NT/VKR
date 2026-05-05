@@ -15,7 +15,7 @@ class Localizer:
         self.last_transform = np.eye(4)
     
     def process_frame(self, scan_points):
-        # start_time = time.time()
+        start_time = time.time()
         
         scan_xyz = scan_points[:, :3]
         
@@ -35,6 +35,7 @@ class Localizer:
         current_transform = result.T_target_source
         self.last_transform = current_transform
         
-        # process_time = (time.time() - start_time) * 1000
+        process_time = (time.time() - start_time) * 1000
+        print(f"Время: {process_time} мс | Сходимость: {result.converged}")
 
         return current_transform

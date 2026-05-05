@@ -1,7 +1,7 @@
-from bev_detector import BEV_DETECTOR
-from ultralytics import YOLO
 import json
-from utils.general import pcd_from_points
+from ultralytics import YOLO
+from ..bev_detector import BEV_DETECTOR
+from ..utils.general import pcd_from_points
 
 
 model = YOLO('runs/bev_obb_model9/weights/best.engine', task='obb')

@@ -15,12 +15,11 @@ config.read('settings.conf')
 PCD_COL = ast.literal_eval(config['CONSTANTS']['PCD_COLUMNS'])
 PCD_PATH = config['PATHS']['PCD_PATH']
 # PCD_PATH += '_perfect'
-PCD_PATH += '_DELETED'
+# PCD_PATH += '_DELETED'
 # PERFECT_HD_MAP_PATH = './training/HD_perfect'
-PERFECT_HD_MAP_PATH = './training/HD_my'
+# PERFECT_HD_MAP_PATH = './training/HD_my'
+PERFECT_HD_MAP_PATH = './training/HD_bad'
 PANDASET_PATH = config['PATHS']['PANDASET_PATH']
-
-TYPES = (np.float32, np.float32, np.float32, np.float32)
 
 def create_clear_hd_maps():
     if not os.path.exists(PCD_PATH):

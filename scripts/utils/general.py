@@ -1,6 +1,7 @@
 import configparser
 import ast
 import numpy as np
+from pypcd4 import PointCloud
 
 
 def parse_configs(config):
@@ -101,3 +102,8 @@ def get_work_pcd_area(pcd_points):
     valid_points_mask = mask_x & mask_y
     
     return pcd_points[valid_points_mask]
+
+def pcd_from_points(point_array):
+    return PointCloud.from_points(point_array,
+                                  ['x', 'y', 'z', 'i'],
+                                  [np.float32, np.float32, np.float32, np.float32])

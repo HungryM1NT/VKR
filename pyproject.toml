@@ -15,6 +15,7 @@ dependencies = [
     "pillow>=12.1.1",
     "pypcd4>=1.4.3",
     "shapely>=2.1.2",
+    "small-gicp>=1.0.0",
     "tensorrt>=10.16.1.11",
     "tensorrt-cu13>=7.0.0,!=10.1.0",
     "tqdm>=4.67.3",

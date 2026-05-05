@@ -7,7 +7,7 @@ import json
 import numpy as np
 from tqdm import tqdm
 from pypcd4 import PointCloud
-from ..utils.general import get_work_pcd_area
+from ..utils.general import get_work_pcd_area, pcd_from_points
 
 
 config = configparser.ConfigParser()
@@ -19,8 +19,6 @@ CUB_COL = ['yaw', 'position.x', 'position.y', 'position.z', 'dimensions.x', 'dim
 PCD_PATH = config['PATHS']['PCD_PATH']
 PCD_PATH += "_perfect"
 PANDASET_PATH = config['PATHS']['PANDASET_PATH']
-
-TYPES = (np.float32, np.float32, np.float32, np.float32)
 
 def xyzwlha_to_4xy2z(cuboids_array):
     """_summary_
@@ -192,7 +190,7 @@ def transform_pkl_to_pcd():
                 
                 points_array = points_array[delete_mask]
 
-                pcd = PointCloud.from_points(points_array, PCD_COL, TYPES)
+                pcd = pcd_from_points(points_array)
                 
                 write_path = f"{pcd_full_path}/{file[:-4]}.pcd"
                 pcd.save(write_path)

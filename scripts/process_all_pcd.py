@@ -8,7 +8,7 @@ import numpy as np
 from bev_detector import BEV_DETECTOR
 from ultralytics import YOLO
 import json
-
+from utils.general import pcd_from_points
 
 
 config = configparser.ConfigParser()
@@ -17,9 +17,6 @@ config.read('settings.conf')
 PCD_COL = ast.literal_eval(config['CONSTANTS']['PCD_COLUMNS'])
 PCD_PATH = config['PATHS']['PCD_PATH']
 PCD_DELETED_PATH = config['PATHS']['PCD_DELETED_PATH']
-HD_PATH = config['PATHS']['HD_PATH']
-
-TYPES = (np.float32, np.float32, np.float32, np.float32)
 
 
 def main():
@@ -49,7 +46,7 @@ def main():
                     position = json_poses[int(pcd_file[:-4])]['position']
                     clear_points = detector.detect_and_delete(pcd_path, position['x'], position['y'])
                     
-                    clear_pcd = PointCloud.from_points(clear_points, ['x', 'y', 'z', 'i'], TYPES)
+                    clear_pcd = pcd_from_points(clear_points)
                     clear_pcd.save(f"{pcd_deleted_full_path}/{pcd_file}")
                 elif pcd_file.endswith('.json'):
                     file_path = f'{pcd_folder_path}/{pcd_file}'

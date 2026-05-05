@@ -4,8 +4,8 @@ import shutil
 import pickle
 import configparser
 from tqdm import tqdm
-from pypcd4 import PointCloud
 import numpy as np
+from utils.general import pcd_from_points
 
 
 config = configparser.ConfigParser()
@@ -15,8 +15,6 @@ PCD_COL = ast.literal_eval(config['CONSTANTS']['PCD_COLUMNS'])
 
 PCD_PATH = config['PATHS']['PCD_PATH']
 PANDASET_PATH = config['PATHS']['PANDASET_PATH']
-
-TYPES = (np.float32, np.float32, np.float32, np.float32)
 
 
 def transform_pkl_to_pcd():
@@ -46,7 +44,7 @@ def transform_pkl_to_pcd():
                     lidar_data = pickle.load(f)
                     points_array = lidar_data[PCD_COL].to_numpy(dtype=np.float32)
                 
-                pcd = PointCloud.from_points(points_array, PCD_COL, TYPES)
+                pcd = pcd_from_points(points_array)
                 
                 write_path = f"{pcd_full_path}/{file[:-4]}.pcd"
                 pcd.save(write_path)

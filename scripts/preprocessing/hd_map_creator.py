@@ -1,20 +1,15 @@
 import os
 import ast
-import pickle
 import configparser
-from tqdm import tqdm
 from pypcd4 import PointCloud
 import numpy as np
+from utils.general import pcd_from_points
 
 
 config = configparser.ConfigParser()
 config.read('settings.conf')
 
 PCD_COL = ast.literal_eval(config['CONSTANTS']['PCD_COLUMNS'])
-
-PANDASET_PATH = config['PATHS']['PANDASET_PATH']
-
-TYPES = (np.float32, np.float32, np.float32, np.float32)
 
 def voxel_down_sample(pcd_points, voxel_size):
     xyz = pcd_points[:, :3]
@@ -38,5 +33,5 @@ def create_HD_map(pcds_folder_path, save_path):
     
     hd_map_points = np.vstack(hd_map_list)
     hd_map_points = voxel_down_sample(hd_map_points, 0.05)
-    hd_map = PointCloud.from_points(hd_map_points, PCD_COL, TYPES)
+    hd_map = pcd_from_points(hd_map_points)
     hd_map.save(save_path)

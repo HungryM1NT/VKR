@@ -3,8 +3,8 @@ import numpy as np
 
 # 1. Загрузка собранной HD-карты и нового неизвестного скана
 print("Загрузка облаков точек...")
-global_map = o3d.io.read_point_cloud("global_hd_map_001_without_rot.pcd")
-current_scan = o3d.io.read_point_cloud("training/PCD/001/03.pcd")
+global_map = o3d.io.read_point_cloud("training/HD_my/040.pcd")
+current_scan = o3d.io.read_point_cloud("training/PCD_DELETED/040/79.pcd")
 
 # Обязательный даунсемплинг для скорости локализации (воксель 20 см)
 global_map = global_map.voxel_down_sample(voxel_size=0.2)

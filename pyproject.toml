@@ -3,7 +3,7 @@ name = "vkr"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "ipywidgets>=8.1.7",
     "jupyter>=1.1.1",
@@ -11,6 +11,7 @@ dependencies = [
     "onnxruntime-gpu>=1.25.0",
     "open3d>=0.19.0",
     "opencv-python>=4.13.0.92",
+    "openmim>=0.3.9",
     "pandas>=3.0.1",
     "pillow>=12.1.1",
     "pypcd4>=1.4.3",

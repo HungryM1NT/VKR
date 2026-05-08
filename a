@@ -1,0 +1,25 @@
+EfficientNet 
+SENet
+CenterPoint
+PIXOR
+PointPillars
+CenterNet
+ShuffleeNetV2 
+MobileNetV2
+
+
+
+CSP-Darknet в YOLO26
+
+mAP50
+AP_CAR, AP....
+Recall (лучше) или F1-Score
+Latency
+VRAM Usage
+
+
+
+CenterNet
+PIXOR
+FCOS-OBB
+BirdNet   (Rotated Faster R-CNN (ResNet-50 + FPN))

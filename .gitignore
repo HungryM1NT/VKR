@@ -22,5 +22,6 @@ training/
 mmrotate/
 mmdeploy/
 temp/
+runs/
 
 epoch_17.pth

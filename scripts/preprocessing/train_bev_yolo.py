@@ -3,7 +3,7 @@ import configparser
 
 
 config = configparser.ConfigParser()
-config.read('settings.conf')
+config.read('scripts/settings.conf')
 YOLO_DATASET_PATH = config['PATHS']['YOLO_DATASET_PATH']
 
 

@@ -19,5 +19,9 @@ HD_my/
 PCD_DELETED/
 HD_bad/
 training/
+mmrotate/
+mmdeploy/
+runs/
+temp/
 
 epoch_17.pth

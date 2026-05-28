@@ -24,7 +24,7 @@ def parse_configs(config):
 
 
 config = configparser.ConfigParser()
-config.read('settings.conf')
+config.read('scripts/settings.conf')
 CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
 
 

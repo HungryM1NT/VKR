@@ -14,7 +14,7 @@ import warnings
 warnings.filterwarnings("ignore", message=".*align should be passed as Python or NumPy boolean.*")
 
 config = configparser.ConfigParser()
-config.read('settings.conf')
+config.read('scripts/settings.conf')
 CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
 
 BEV_LABELS = ast.literal_eval(config['CONSTANTS']['BEV_LABELS'])
@@ -151,11 +151,6 @@ def create_BEV_dataset():
             write_labels(all_labels, labels_path, pandaset_folder_num, file)
 
             
-        
-        
-
-
-    
 
 def main():
     if not os.path.exists(BEV_DATASET_PATH):

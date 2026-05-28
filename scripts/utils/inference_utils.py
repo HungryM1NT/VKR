@@ -4,7 +4,7 @@ from utils.general import parse_configs
 
 
 config = configparser.ConfigParser()
-config.read('settings.conf')
+config.read('scripts/settings.conf')
 CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
 
 
@@ -34,29 +34,35 @@ def get_delete_mask_obb(pcd_points, scaled_coords, ego_center=None, ego_size=(4.
     mask = np.zeros(len(pcd_points), dtype=bool)
     
     for poly in scaled_coords:
-            # Берем первые три точки прямоугольника (они идут последовательно)
+            min_x, min_y = np.min(poly, axis=0)
+            max_x, max_y = np.max(poly, axis=0)
+            
+            in_aabb = (xy_points[:, 0] >= min_x) & (xy_points[:, 0] <= max_x) & \
+                  (xy_points[:, 1] >= min_y) & (xy_points[:, 1] <= max_y)
+            
+            if not np.any(in_aabb):
+                continue
+            
+            candidate_points = xy_points[in_aabb]
+            
             A, B, C = poly[0], poly[1], poly[2]
             
-            # Векторы сторон
             AB = B - A
             BC = C - B
             
-            # Векторы от углов до всех точек облака
-            AP = xy_points - A
-            BP = xy_points - B
+            AP = candidate_points - A
+            BP = candidate_points - B
             
-            # Скалярные произведения (векторные проекции)
             dot_AP_AB = np.dot(AP, AB)
             dot_AB_AB = np.dot(AB, AB)
             
             dot_BP_BC = np.dot(BP, BC)
             dot_BC_BC = np.dot(BC, BC)
             
-            # Точка внутри, если проекция лежит между 0 и длиной стороны
             inside_mask = (0 <= dot_AP_AB) & (dot_AP_AB <= dot_AB_AB) & \
                         (0 <= dot_BP_BC) & (dot_BP_BC <= dot_BC_BC)
                         
-            mask |= inside_mask
+            mask[in_aabb] |= inside_mask
         
     if ego_center is not None:
         x_center, y_center = ego_center

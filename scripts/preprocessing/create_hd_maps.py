@@ -1,16 +1,12 @@
 import os
 import ast
-import shutil
-import pickle
 import configparser
 from tqdm import tqdm
-from pypcd4 import PointCloud
 from .hd_map_creator import create_HD_map
-import numpy as np
 
 
 config = configparser.ConfigParser()
-config.read('settings.conf')
+config.read('scripts/settings.conf')
 
 PCD_COL = ast.literal_eval(config['CONSTANTS']['PCD_COLUMNS'])
 PCD_PATH = config['PATHS']['PCD_PATH']

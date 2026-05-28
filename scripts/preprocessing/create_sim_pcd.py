@@ -16,7 +16,7 @@ PCD_COL = ast.literal_eval(config['CONSTANTS']['PCD_COLUMNS'])
 CUB_COL = ['yaw', 'position.x', 'position.y', 'position.z', 'dimensions.x', 'dimensions.y', 'dimensions.z']
 
 PCD_PATH = config['PATHS']['PCD_PATH']
-PCD_PATH += "_perfect"
+PCD_PATH += "_simulated"
 PANDASET_PATH = config['PATHS']['PANDASET_PATH']
 
 def xyzwlha_to_4xy2z(cuboids_array):
@@ -69,12 +69,14 @@ def xyzwlha_to_4xy2z(cuboids_array):
         "z_maxs": z_maxs
     }
 
-def get_3d_delete_mask(pcd_points, coords, z_mins, z_maxs, ego_center=None, ego_size=(4.0, 4.0)):
+def move_and_rotate_cuboids(pcd_points, cuboids_array, coords, z_mins, z_maxs, 
+                            move_radius=5.0, max_angle=np.pi/4):
+
     xy_points = pcd_points[:, :2]
-    
     z_points = pcd_points[:, 2]
     
-    mask = np.zeros(len(pcd_points), dtype=bool)
+    global_dynamic_mask = np.zeros(len(pcd_points), dtype=bool)
+    moved_points_list = []
     
     for i, poly in enumerate(coords):
         A, B, C = poly[0], poly[1], poly[2]
@@ -94,29 +96,46 @@ def get_3d_delete_mask(pcd_points, coords, z_mins, z_maxs, ego_center=None, ego_
         inside_mask = (0 <= dot_AP_AB) & (dot_AP_AB <= dot_AB_AB) & \
                       (0 <= dot_BP_BC) & (dot_BP_BC <= dot_BC_BC)
         
-
         z_min = z_mins[i]
         z_max = z_maxs[i]
         
         inside_mask &= (z_points >= z_min) & (z_points <= z_max)
-                    
-        mask |= inside_mask
         
-    if ego_center is not None:
-        x_center, y_center = ego_center
-        size_x, size_y = ego_size
+        global_dynamic_mask |= inside_mask
         
-        x_min = x_center - (size_x / 2.0)
-        x_max = x_center + (size_x / 2.0)
-        y_min = y_center - (size_y / 2.0)
-        y_max = y_center + (size_y / 2.0)
+        cuboid_pts = pcd_points[inside_mask].copy()
         
-        ego_mask = (pcd_points[:, 0] >= x_min) & (pcd_points[:, 0] <= x_max) & \
-                   (pcd_points[:, 1] >= y_min) & (pcd_points[:, 1] <= y_max)
-                   
-        mask |= ego_mask
+        if len(cuboid_pts) > 0:
+            cx = cuboids_array[i, 1]
+            cy = cuboids_array[i, 2]
+            
+            delta_x = np.random.uniform(-move_radius, move_radius)
+            delta_y = np.random.uniform(-move_radius, move_radius)
+            delta_yaw = np.random.uniform(-max_angle, max_angle)
+            
+            translated_x = cuboid_pts[:, 0] - cx
+            translated_y = cuboid_pts[:, 1] - cy
+            
+            cos_y = np.cos(delta_yaw)
+            sin_y = np.sin(delta_yaw)
+            
+            rotated_x = translated_x * cos_y - translated_y * sin_y
+            rotated_y = translated_x * sin_y + translated_y * cos_y
+            
+            cuboid_pts[:, 0] = rotated_x + cx + delta_x
+            cuboid_pts[:, 1] = rotated_y + cy + delta_y
+            
+            moved_points_list.append(cuboid_pts)
+
+    static_points = pcd_points[~global_dynamic_mask]
+    
+    if moved_points_list:
+        final_points = np.vstack([static_points] + moved_points_list)
+    else:
+        final_points = static_points
         
-    return np.invert(mask)
+    return final_points
+
 
 def transform_pkl_to_pcd():
     if not os.path.exists(PANDASET_PATH):
@@ -160,16 +179,15 @@ def transform_pkl_to_pcd():
                     points_array = lidar_data[PCD_COL].to_numpy(dtype=np.float32)
                     points_array = get_work_pcd_area(points_array)
                 
-                position = json_poses[int(file[:-4])]['position']
-                
                 dyn_objects_dict = xyzwlha_to_4xy2z(cuboids_array)
             
-                delete_mask = get_3d_delete_mask(points_array,
-                                          **dyn_objects_dict,
-                                          ego_center=(position['x'], position['y']), 
-                                          ego_size=(4.0, 4.0))
-                
-                points_array = points_array[delete_mask]
+                points_array = move_and_rotate_cuboids(
+                    points_array,
+                    cuboids_array,
+                    **dyn_objects_dict,
+                    move_radius=6.0,
+                    max_angle=np.pi/4
+                )
 
                 pcd = pcd_from_points(points_array)
                 

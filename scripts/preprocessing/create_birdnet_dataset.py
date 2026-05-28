@@ -64,4 +64,4 @@ def convert_yolo_to_dota(yolo_dir, output_dir):
 
 if __name__ == '__main__':
     convert_yolo_to_dota(YOLO_DATASET_PATH, BIRDNET_DATASET_PATH)
-    print(f"Успешно! Новый датасет лежит в: {BIRDNET_DATASET_PATH}")
+    print(f"Новый датасет лежит в: {BIRDNET_DATASET_PATH}")

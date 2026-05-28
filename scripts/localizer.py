@@ -36,6 +36,6 @@ class Localizer:
         self.last_transform = current_transform
         
         process_time = (time.time() - start_time) * 1000
-        print(f"Время: {process_time} мс | Сходимость: {result.converged}")
+        # print(f"Время: {process_time} мс | Сходимость: {result.converged}")
 
         return current_transform

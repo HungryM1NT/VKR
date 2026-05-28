@@ -14,7 +14,7 @@ def check_shuffle_perc():
     
     
 config = configparser.ConfigParser()
-config.read('settings.conf')
+config.read('scripts/settings.conf')
 CUB_COL, PCD_COL, PCD_A_W, PCD_A_H, BW, BH, WM, HM = parse_configs(config)
 
 BEV_LABELS = ast.literal_eval(config['CONSTANTS']['BEV_LABELS'])
@@ -29,7 +29,6 @@ TRAIN_PART = float(config['BEV_SHUFFLE']['TRAIN_PERC']) / 100
 TEST_PART = float(config['BEV_SHUFFLE']['TEST_PERC']) / 100
 
 
-# Распределение всех лейблов по необходимым зонам (row_num x col_num)
 def get_label_areas(cuboids_array, row_num, col_num, x_min_border, y_min_border):
     label_areas = [[[] for _ in range((col_num))] for _ in range(row_num)]
 

@@ -7,7 +7,7 @@ from utils.general import pcd_from_points
 
 
 config = configparser.ConfigParser()
-config.read('settings.conf')
+config.read('scripts/settings.conf')
 
 PCD_COL = ast.literal_eval(config['CONSTANTS']['PCD_COLUMNS'])
 

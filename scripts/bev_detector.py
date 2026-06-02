@@ -86,10 +86,8 @@ class BEV_DETECTOR:
     
     def get_bev_imgs(self, pcd_points, x_center, y_center):   
         x_min_border = x_center - WM
-        x_max_border = x_center + WM
 
         y_min_border = y_center - HM
-        y_max_border = y_center + HM
         
         z_min = np.min(pcd_points[:, 2])
         z_max = np.max(pcd_points[:, 2])
@@ -119,13 +117,13 @@ class BEV_DETECTOR:
 
         t_start = time.perf_counter()
         pcd_points = self._read_pcd(pcd_path)        
-        self.timings['1. Чтение файла PCD'] = time.perf_counter() - t_start
+        self.timings['Чтение файла PCD'] = time.perf_counter() - t_start
         
         coords = self.detect(pcd_points, x_center, y_center)
         
         t_start = time.perf_counter()
         filtered_points = self.delete(pcd_points, coords, x_center, y_center)
-        self.timings['5. Удаление точек'] = time.perf_counter() - t_start
+        self.timings['Удаление точек'] = time.perf_counter() - t_start
         
         self.timings['ОБЩЕЕ ВРЕМЯ (Очищение)'] = time.perf_counter() - total_start
 
@@ -140,19 +138,19 @@ class BEV_DETECTOR:
     def detect(self, pcd_points, x_center=0.0, y_center=0.0):
         t_start = time.perf_counter()
         bev_images, borders = self.get_bev_imgs(pcd_points, x_center, y_center)
-        self.timings['2. Конвертация PCD в BEV'] = time.perf_counter() - t_start
+        self.timings['Конвертация PCD в BEV'] = time.perf_counter() - t_start
         
         t_start = time.perf_counter()
         results = []
         for img in bev_images:
             res = self.model(img, verbose=False)
             results.extend(res)
-        self.timings['3. Инференс YOLO'] = time.perf_counter() - t_start
+        self.timings['Инференс YOLO'] = time.perf_counter() - t_start
     
         t_start = time.perf_counter()
         all_coords = get_coords_from_bevs(results, borders)
         scaled_coords = scale_obbs_percentage(all_coords, scale_factor=1.2)
-        self.timings['4. Расчет OBB координат'] = time.perf_counter() - t_start
+        self.timings['Расчет OBB координат'] = time.perf_counter() - t_start
         
         return scaled_coords
        
